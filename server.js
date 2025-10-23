@@ -183,7 +183,57 @@ app.post('/api/classify-products', async (req, res) => {
   }
 });
 
-// 2. Learn from user corrections
+// 2. Correct product names using AI
+app.post('/api/correct-names', async (req, res) => {
+  try {
+    const { products } = req.body;
+    
+    if (!products || !Array.isArray(products) || products.length === 0) {
+      return res.status(400).json({ error: 'Products array is required' });
+    }
+
+    console.log(`🔧 Correcting ${products.length} product names:`, products);
+
+    // Use OpenAI to correct product names
+    const productList = products.join(', ');
+    
+    const systemMessage = "Tu esi eksperts latviešu valodā. Labo produktu nosaukumus, lai tie būtu gramatiski pareizi un skaidri. Atbildi tikai JSON formātā.";
+    const userMessage = `Labo šos produktu nosaukumus latviešu valodā: ${productList}
+
+Atbildi JSON formātā:
+{
+  "correctedNames": ["labots_nosaukums1", "labots_nosaukums2", ...]
+}`;
+
+    const messages = [
+      { role: "system", content: systemMessage },
+      { role: "user", content: userMessage }
+    ];
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: messages,
+      max_tokens: 500,
+      temperature: 0.1
+    });
+
+    const content = response.choices[0].message.content.trim();
+    console.log('🔧 AI correction response:', content);
+
+    // Parse JSON response
+    const correctedData = JSON.parse(content);
+    const correctedNames = correctedData.correctedNames || products;
+
+    console.log('✅ Corrected names:', correctedNames);
+    res.json({ correctedNames });
+
+  } catch (error) {
+    console.error('❌ Name correction error:', error);
+    res.status(500).json({ error: 'Name correction failed', details: error.message });
+  }
+});
+
+// 3. Learn from user corrections
 app.post('/api/learn', async (req, res) => {
   try {
     const { product, correctCategory } = req.body;
@@ -358,3 +408,4 @@ process.on('SIGINT', () => {
     process.exit(0);
   });
 });
+
