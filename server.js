@@ -3,6 +3,7 @@
 
 const express = require('express');
 const cors = require('cors');
+const rateLimit = require('express-rate-limit');
 const OpenAI = require('openai');
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
@@ -13,6 +14,80 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Request ID middleware
+app.use((req, res, next) => {
+  req.requestId = req.header('X-Request-Id') || `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  next();
+});
+
+// X-User-Id validation middleware
+app.use((req, res, next) => {
+  const method = req.method?.toUpperCase();
+  const needsUser = ["POST", "PUT", "PATCH", "DELETE"].includes(method);
+  const isPublicGet = method === "GET" && ["/api/health", "/api/categories", "/api/suggestions"].includes(req.path);
+  
+  if (!needsUser || isPublicGet) return next();
+  
+  const userId = req.header("X-User-Id");
+  if (!userId || !/^u-\d+-[a-z0-9]{8}$/.test(userId)) {
+    return res.status(400).json({ 
+      error: "missing_or_invalid_user_id",
+      requestId: req.requestId,
+      expectedFormat: "u-timestamp-8chars"
+    });
+  }
+  req.userId = userId;
+  next();
+});
+
+// Structured logging middleware
+app.use((req, res, next) => {
+  const start = Date.now();
+  const originalSend = res.send;
+  
+  res.send = function(data) {
+    const duration = Date.now() - start;
+    const logData = {
+      requestId: req.requestId,
+      userId: req.userId || 'anon',
+      method: req.method,
+      path: req.path,
+      statusCode: res.statusCode,
+      duration: `${duration}ms`,
+      userAgent: req.header('User-Agent'),
+      appVersion: req.header('X-App-Version'),
+      deviceId: req.header('X-Device-Id'),
+      plan: req.header('X-Plan')
+    };
+    
+    if (res.statusCode >= 400) {
+      console.error(`❌ [${req.requestId}] ${req.method} ${req.path} - ${res.statusCode} (${duration}ms)`, logData);
+    } else {
+      console.log(`✅ [${req.requestId}] ${req.method} ${req.path} - ${res.statusCode} (${duration}ms)`, logData);
+    }
+    
+    return originalSend.call(this, data);
+  };
+  
+  next();
+});
+
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 60, // 60 requests per minute
+  keyGenerator: (req) => req.userId || req.ip,
+  message: { 
+    error: "rate_limit_exceeded",
+    requestId: (req) => req.requestId,
+    retryAfter: "1 minute"
+  },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+app.use('/api/', limiter);
 
 // OpenAI client
 const openai = new OpenAI({
@@ -94,6 +169,43 @@ function normalizeInput(input) {
     .trim();
 }
 
+// Health endpoints
+app.get('/', (req, res) => res.json({ 
+  ok: true, 
+  requestId: req.requestId,
+  timestamp: new Date().toISOString()
+}));
+
+app.get('/api/health', (req, res) => res.json({ 
+  status: "healthy",
+  requestId: req.requestId,
+  timestamp: new Date().toISOString(),
+  uptime: process.uptime()
+}));
+
+app.get('/api/ready', (req, res) => {
+  // Check if database and OpenAI are accessible
+  const isReady = !!process.env.OPENAI_API_KEY;
+  const status = isReady ? "ready" : "not_ready";
+  const statusCode = isReady ? 200 : 503;
+  
+  res.status(statusCode).json({
+    status,
+    requestId: req.requestId,
+    timestamp: new Date().toISOString(),
+    openai: isReady ? "configured" : "missing",
+    database: "sqlite"
+  });
+});
+
+app.get('/api/version', (req, res) => res.json({
+  version: "2025.01.15-1",
+  requestId: req.requestId,
+  timestamp: new Date().toISOString(),
+  commit: process.env.RAILWAY_GIT_COMMIT_SHA || "unknown",
+  node: process.version
+}));
+
 // API Routes
 
 // 1. Classify products
@@ -102,10 +214,13 @@ app.post('/api/classify-products', async (req, res) => {
     const { products } = req.body;
     
     if (!products || !Array.isArray(products) || products.length === 0) {
-      return res.status(400).json({ error: 'Products array is required' });
+      return res.status(400).json({ 
+        error: 'Products array is required',
+        requestId: req.requestId
+      });
     }
 
-    console.log(`🤖 Classifying ${products.length} products:`, products);
+    console.log(`🤖 [${req.requestId}] Classifying ${products.length} products:`, products);
 
     // Check database first for known products
     const knownProducts = [];
@@ -145,15 +260,16 @@ app.post('/api/classify-products', async (req, res) => {
 
     // If all products are known, return immediately
     if (unknownProducts.length === 0) {
-      console.log('✅ All products found in database');
+      console.log(`✅ [${req.requestId}] All products found in database`);
       return res.json({ 
         classifications: knownProducts,
-        cached: true 
+        cached: true,
+        requestId: req.requestId
       });
     }
 
     // Use AI for unknown products
-    console.log(`🤖 Using AI for ${unknownProducts.length} unknown products`);
+    console.log(`🤖 [${req.requestId}] Using AI for ${unknownProducts.length} unknown products`);
     
     const aiClassifications = await classifyWithAI(unknownProducts);
     
@@ -174,7 +290,8 @@ app.post('/api/classify-products', async (req, res) => {
     res.json({
       classifications: allClassifications,
       cached: false,
-      aiUsed: true
+      aiUsed: true,
+      requestId: req.requestId
     });
 
   } catch (error) {
