@@ -202,11 +202,15 @@ db.serialize(() => {
     { name: 'Uzkodas', icon: '🍫', slug: 'snacks', aisle_order: 80 },
     { name: 'Gatavie ēdieni', icon: '🧊', slug: 'ready_meals', aisle_order: 90 },
     { name: 'Dzērieni', icon: '🥤', slug: 'beverages', aisle_order: 100 },
+    { name: 'Alkohols', icon: '🍷', slug: 'alcohol', aisle_order: 110 },
+    { name: 'Sausā gaļa', icon: '🥓', slug: 'deli', aisle_order: 120 },
+    { name: 'Bērnu barība', icon: '👶', slug: 'baby_food', aisle_order: 130 },
     { name: 'Mājsaimniecība', icon: '🧴', slug: 'household', aisle_order: 200 },
     { name: 'Higiēna', icon: '🧼', slug: 'hygiene', aisle_order: 210 },
     { name: 'Mājdzīvniekiem', icon: '🐾', slug: 'pet', aisle_order: 220 },
     { name: 'Starptautiskie', icon: '🌍', slug: 'international', aisle_order: 230 },
-    { name: 'Būvniecība', icon: '🧱', slug: 'construction', aisle_order: 240 }
+    { name: 'Būvniecība', icon: '🧱', slug: 'construction', aisle_order: 240 },
+    { name: 'Cits', icon: '❓', slug: 'other', aisle_order: 999 }
   ];
 
   const stmt = db.prepare(`INSERT OR IGNORE INTO categories (name, icon, slug, aisle_order) VALUES (?, ?, ?, ?)`);
@@ -389,10 +393,15 @@ app.post('/api/correct-names', async (req, res) => {
     // Use OpenAI to correct product names
     const productList = products.join(', ');
     
-    const systemMessage = "Tu esi eksperts latviešu valodā. Labo produktu nosaukumus, lai tie būtu gramatiski pareizi un skaidri. Ja nosaukums jau ir pareizs, atstāj to nemainītu. Atbildi tikai JSON formātā.";
+    const systemMessage = "Tu esi eksperts latviešu valodā. Labo produktu nosaukumus, lai tie būtu gramatiski pareizi un skaidri. SAGLABĀJ brand nosaukumus un specifiskus aprakstus. Ja nosaukums jau ir pareizs, atstāj to nemainītu. Atbildi tikai JSON formātā.";
     const userMessage = `Labo šos produktu nosaukumus latviešu valodā: ${productList}
 
-Piemēri:
+Svarīgi - SAGLABĀJ:
+- Brand nosaukumus: "dore blue siers" → "dore blue siers" (NEMAINĪT)
+- Specifiskus aprakstus: "bērnu cīsiņi" → "bērnu cīsiņi" (NEMAINĪT)
+- Produktu veidus: "bezlaktozes jogurts" → "bezlaktozes jogurts" (NEMAINĪT)
+
+Labo tikai gramatikas kļūdas:
 - "biespiena sieriņš" → "biezpiena sieriņš"
 - "apelsinu sulu" → "apelsīnu sula" 
 - "balto vinu" → "baltais vīns"
@@ -535,19 +544,34 @@ async function classifyWithAI(products) {
   const prompt = `Klasificē šos latviešu pārtikas produktus pēc kategorijām:
 
 Kategorijas:
-- vegetables (dārzeņi: tomāti, gurķi, kartupeļi, sīpoli, burkāni)
-- fruits (augļi: āboli, banāni, citrusi, ogles)
-- meat (gaļa: liellopa gaļa, vista, desa, zivis, maltā gaļa)
-- dairy (piena produkti: piens, siers, jogurts, krējums, biezpiens, sviests)
-- eggs (olas)
-- bakery (maize, kliņģeris, kūkas)
-- beverages (dzērieni: ūdens, sula, kafija, tēja, vīns, alus)
-- snacks (uzkodas: čipsi, saldumi, rieksti)
-- household (mājsaimniecība: šampūns, zobu birste, papīrs)
-- hygiene (higiēna: zobu pasta, šampūns, ziepes)
-- pet (mājdzīvniekiem: suņu barība, kaķu barība)
-- international (starptautiskie produkti)
-- construction (būvniecība: krāsa, skrūves)
+- vegetables (dārzeņi: tomāti, gurķi, kartupeļi, sīpoli, burkāni, ķirši)
+- fruits (augļi: āboli, banāni, citrusi, ogles, bumbieri)
+- meat (gaļa: liellopa gaļa, vista, cūkgaļa, maltā gaļa, kotletes)
+- fish (zivis: zivis, zivju filejas, vēzis, krabji)
+- dairy (piena produkti: piens, siers, jogurts, krējums, biezpiens, sviests, kefīrs)
+- eggs (olas: vistas olas, pīļu olas)
+- bakery (maize: maize, kliņģeris, kūkas, biskvīti, kāpostmaize)
+- grains (graudi: rīsi, griķi, auzas, kvieši, makaroni)
+- snacks (uzkodas: čipsi, saldumi, rieksti, sēklas, kūkas)
+- ready_meals (gatavie ēdieni: salāti, zupas, ēdieni uzreiz)
+- beverages (dzērieni: ūdens, sula, kafija, tēja, limonāde, kvass)
+- alcohol (alkohols: vīns, vodka, alus, degvīns, konjaks, šampanietis)
+- deli (sausā gaļa: cīsiņi, desa, šašliks, kūpināta gaļa, sieriņi)
+- baby_food (bērnu barība: bērnu barība, bērnu cīsiņi, bērnu jogurts, bērnu sula)
+- household (mājsaimniecība: šampūns, zobu birste, papīrs, ziepes)
+- hygiene (higiēna: zobu pasta, šampūns, ziepes, kremas)
+- pet (mājdzīvniekiem: suņu barība, kaķu barība, putnu barība)
+- international (starptautiskie produkti: ķīniešu ēdieni, japāņu ēdieni)
+- construction (būvniecība: krāsa, skrūves, dēļi)
+- other (cits: ja nevar noteikt kategoriju)
+
+Svarīgi:
+- "sarkanvīns" → alcohol (nevis beverages)
+- "vodka" → alcohol (nevis beverages) 
+- "cīsiņi" → deli (nevis meat)
+- "bērnu cīsiņi" → baby_food (nevis deli)
+- "dore blue siers" → dairy (saglabājot pilno nosaukumu)
+- "bezlaktozes jogurts" → dairy (saglabājot pilno nosaukumu)
 
 Produkti: ${productList}
 
