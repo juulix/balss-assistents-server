@@ -343,13 +343,13 @@ app.post('/api/classify-products', async (req, res) => {
     // Use AI for unknown products
     console.log(`🤖 [${req.requestId}] Using AI for ${unknownProducts.length} unknown products`);
     
-    const aiClassifications = await classifyWithAI(unknownProducts);
+    const aiResults = await classifyWithAI(unknownProducts);
     
     // Track AI classifications
     aiClassifications.inc({ status: "success" }, unknownProducts.length);
     
     // Save AI classifications to database
-    for (const classification of aiClassifications) {
+    for (const classification of aiResults) {
       const normalizedName = normalizeInput(classification.product);
       
       db.run(
@@ -360,7 +360,7 @@ app.post('/api/classify-products', async (req, res) => {
     }
 
     // Combine known and AI classifications
-    const allClassifications = [...knownProducts, ...aiClassifications];
+    const allClassifications = [...knownProducts, ...aiResults];
 
     res.json({
       classifications: allClassifications,
