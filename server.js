@@ -197,8 +197,15 @@ app.post('/api/correct-names', async (req, res) => {
     // Use OpenAI to correct product names
     const productList = products.join(', ');
     
-    const systemMessage = "Tu esi eksperts latviešu valodā. Labo produktu nosaukumus, lai tie būtu gramatiski pareizi un skaidri. Atbildi tikai JSON formātā.";
+    const systemMessage = "Tu esi eksperts latviešu valodā. Labo produktu nosaukumus, lai tie būtu gramatiski pareizi un skaidri. Ja nosaukums jau ir pareizs, atstāj to nemainītu. Atbildi tikai JSON formātā.";
     const userMessage = `Labo šos produktu nosaukumus latviešu valodā: ${productList}
+
+Piemēri:
+- "biespiena sieriņš" → "biezpiena sieriņš"
+- "apelsinu sulu" → "apelsīnu sula" 
+- "balto vinu" → "baltais vīns"
+- "degvins" → "degvīns"
+- "kefirs" → "kefīrs"
 
 Atbildi JSON formātā:
 {
