@@ -4,12 +4,63 @@
 const express = require('express');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
+const client = require('prom-client');
+const Sentry = require('@sentry/node');
 const OpenAI = require('openai');
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 
+// Initialize Sentry
+if (process.env.SENTRY_DSN) {
+  Sentry.init({ 
+    dsn: process.env.SENTRY_DSN, 
+    tracesSampleRate: 0.1,
+    environment: process.env.NODE_ENV || "production"
+  });
+}
+
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Sentry middleware
+if (process.env.SENTRY_DSN) {
+  app.use(Sentry.requestHandler());
+  app.use(Sentry.tracingHandler());
+}
+
+// Prometheus metrics
+const register = new client.Registry();
+client.collectDefaultMetrics({ register });
+
+const httpRequests = new client.Counter({
+  name: "http_requests_total",
+  help: "Total HTTP requests",
+  labelNames: ["method", "path", "status"]
+});
+
+const httpLatency = new client.Histogram({
+  name: "http_request_duration_ms",
+  help: "HTTP request duration (ms)",
+  labelNames: ["method", "path", "status"],
+  buckets: [50, 100, 200, 400, 800, 1500, 3000, 5000]
+});
+
+const aiClassifications = new client.Counter({
+  name: "ai_classifications_total",
+  help: "Total AI classifications performed",
+  labelNames: ["status"]
+});
+
+const databaseOperations = new client.Counter({
+  name: "database_operations_total",
+  help: "Total database operations",
+  labelNames: ["operation", "table"]
+});
+
+register.registerMetric(httpRequests);
+register.registerMetric(httpLatency);
+register.registerMetric(aiClassifications);
+register.registerMetric(databaseOperations);
 
 // Middleware
 app.use(cors());
@@ -18,6 +69,22 @@ app.use(express.json());
 // Request ID middleware
 app.use((req, res, next) => {
   req.requestId = req.header('X-Request-Id') || `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  next();
+});
+
+// Prometheus metrics middleware
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on("finish", () => {
+    const ms = Date.now() - start;
+    const labels = { 
+      method: req.method, 
+      path: req.route?.path || req.path, 
+      status: String(res.statusCode) 
+    };
+    httpRequests.inc(labels, 1);
+    httpLatency.observe(labels, ms);
+  });
   next();
 });
 
@@ -206,6 +273,11 @@ app.get('/api/version', (req, res) => res.json({
   node: process.version
 }));
 
+app.get('/api/metrics', async (req, res) => {
+  res.set('Content-Type', register.contentType);
+  res.end(await register.metrics());
+});
+
 // API Routes
 
 // 1. Classify products
@@ -272,6 +344,9 @@ app.post('/api/classify-products', async (req, res) => {
     console.log(`🤖 [${req.requestId}] Using AI for ${unknownProducts.length} unknown products`);
     
     const aiClassifications = await classifyWithAI(unknownProducts);
+    
+    // Track AI classifications
+    aiClassifications.inc({ status: "success" }, unknownProducts.length);
     
     // Save AI classifications to database
     for (const classification of aiClassifications) {
@@ -513,11 +588,17 @@ Atbildi tikai JSON formātā:
   }
 }
 
+// Sentry error handler
+if (process.env.SENTRY_DSN) {
+  app.use(Sentry.errorHandler());
+}
+
 // Start server
 app.listen(PORT, () => {
   console.log(`🚀 Balss Assistents Server running on port ${PORT}`);
   console.log(`📊 Database: ${dbPath}`);
   console.log(`🤖 OpenAI API: ${process.env.OPENAI_API_KEY ? 'Configured' : 'Missing'}`);
+  console.log(`📈 Sentry: ${process.env.SENTRY_DSN ? 'Configured' : 'Not configured'}`);
 });
 
 // Graceful shutdown
