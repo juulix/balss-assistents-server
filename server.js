@@ -537,41 +537,37 @@ app.get('/api/health', (req, res) => {
 async function classifyWithAI(products) {
   const productList = products.join(', ');
   
-  const prompt = `Klasificē šos latviešu pārtikas produktus pēc kategorijām:
+  const prompt = `Tu esi eksperts pārtikas produktu klasifikācijā. Analizē produktu nosaukumus un klasificē tos pēc loģiskas kategorijas.
 
 Kategorijas:
-- vegetables (dārzeņi: tomāti, gurķi, kartupeļi, sīpoli, burkāni, ķirši)
-- fruits (augļi: āboli, banāni, citrusi, ogles, bumbieri)
-- meat (gaļa: liellopa gaļa, vista, cūkgaļa, maltā gaļa, kotletes, cīsiņi, desa, šašliks)
-- fish (zivis: zivis, zivju filejas, vēzis, krabji)
-- dairy (piena produkti: piens, siers, jogurts, krējums, biezpiens, sviests, kefīrs)
-- eggs (olas: vistas olas, pīļu olas)
-- bakery (maize: maize, kliņģeris, kūkas, biskvīti, kāpostmaize)
-- grains (graudi: rīsi, griķi, auzas, kvieši, makaroni)
-- snacks (uzkodas: čipsi, saldumi, rieksti, sēklas, kūkas)
-- ready_meals (gatavie ēdieni: salāti, zupas, ēdieni uzreiz)
-- beverages (dzērieni: ūdens, sula, kafija, tēja, limonāde, kvass, vīns, vodka, alus, degvīns)
-- household (mājsaimniecība: šampūns, zobu birste, papīrs, ziepes)
-- hygiene (higiēna: zobu pasta, šampūns, ziepes, kremas)
-- pet (mājdzīvniekiem: suņu barība, kaķu barība, putnu barība)
-- international (starptautiskie produkti: ķīniešu ēdieni, japāņu ēdieni)
-- construction (būvniecība: krāsa, skrūves, dēļi)
+- vegetables (dārzeņi)
+- fruits (augļi) 
+- meat (gaļa)
+- fish (zivis)
+- dairy (piena produkti)
+- eggs (olas)
+- bakery (maize un konditorejas izstrādājumi)
+- grains (graudi un makaroni)
+- snacks (uzkodas)
+- ready_meals (gatavie ēdieni)
+- beverages (dzērieni - ūdens, sula, alkohols, kafija, tēja)
+- household (mājsaimniecības preces)
+- hygiene (higiēnas preces)
+- pet (mājdzīvnieku barība)
+- international (starptautiskie produkti)
+- construction (būvmateriāli)
 
-Svarīgi:
-- "sarkanvīns" → beverages (alkohols ir dzērieni)
-- "vodka" → beverages (alkohols ir dzērieni) 
-- "cīsiņi" → meat (sausā gaļa ir gaļa)
-- "bērnu cīsiņi" → meat (bērnu gaļa ir gaļa)
-- "dore blue siers" → dairy (saglabājot pilno nosaukumu)
-- "bezlaktozes jogurts" → dairy (saglabājot pilno nosaukumu)
+Analizē katru produktu:
+1. Identificē galveno produktu (piemēram, "vīns" no "Spānijas sarkanais vīns")
+2. Pievērs uzmanību aprakstošiem vārdiem (valsts, krāsa, veids)
+3. Klasificē pēc galvenā produkta, nevis aprakstošajiem vārdiem
+4. Ja produkts satur alkoholu, tas ir dzēriens
+5. Ja produkts ir gaļa, tas ir meat kategorija
+6. Ja produkts ir no piena, tas ir dairy kategorija
 
 Produkti: ${productList}
 
-Atbildi tikai JSON formātā:
-[
-  {"product": "produkta_nosaukums", "category": "kategorijas_slug"},
-  ...
-]`;
+Atbildi JSON formātā: [{"product": "nosaukums", "category": "kategorija"}]`;
 
   try {
     const completion = await openai.chat.completions.create({
