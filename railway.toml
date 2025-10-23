@@ -1,16 +1,11 @@
 # Railway configuration for Balss Assistents Server
 
-# Build command
-build: npm install
+[build]
+command = "npm install"
 
-# Start command  
-start: npm start
+[deploy]
+startCommand = "npm start"
+healthcheckPath = "/api/health"
 
 # Environment variables needed:
 # OPENAI_API_KEY=sk-proj-...
-
-# Health check endpoint
-health: /api/health
-
-# Port (Railway will set this automatically)
-port: 3000
