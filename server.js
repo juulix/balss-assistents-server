@@ -202,15 +202,11 @@ db.serialize(() => {
     { name: 'Uzkodas', icon: '🍫', slug: 'snacks', aisle_order: 80 },
     { name: 'Gatavie ēdieni', icon: '🧊', slug: 'ready_meals', aisle_order: 90 },
     { name: 'Dzērieni', icon: '🥤', slug: 'beverages', aisle_order: 100 },
-    { name: 'Alkohols', icon: '🍷', slug: 'alcohol', aisle_order: 110 },
-    { name: 'Sausā gaļa', icon: '🥓', slug: 'deli', aisle_order: 120 },
-    { name: 'Bērnu barība', icon: '👶', slug: 'baby_food', aisle_order: 130 },
     { name: 'Mājsaimniecība', icon: '🧴', slug: 'household', aisle_order: 200 },
     { name: 'Higiēna', icon: '🧼', slug: 'hygiene', aisle_order: 210 },
     { name: 'Mājdzīvniekiem', icon: '🐾', slug: 'pet', aisle_order: 220 },
     { name: 'Starptautiskie', icon: '🌍', slug: 'international', aisle_order: 230 },
-    { name: 'Būvniecība', icon: '🧱', slug: 'construction', aisle_order: 240 },
-    { name: 'Cits', icon: '❓', slug: 'other', aisle_order: 999 }
+    { name: 'Būvniecība', icon: '🧱', slug: 'construction', aisle_order: 240 }
   ];
 
   const stmt = db.prepare(`INSERT OR IGNORE INTO categories (name, icon, slug, aisle_order) VALUES (?, ?, ?, ?)`);
@@ -546,7 +542,7 @@ async function classifyWithAI(products) {
 Kategorijas:
 - vegetables (dārzeņi: tomāti, gurķi, kartupeļi, sīpoli, burkāni, ķirši)
 - fruits (augļi: āboli, banāni, citrusi, ogles, bumbieri)
-- meat (gaļa: liellopa gaļa, vista, cūkgaļa, maltā gaļa, kotletes)
+- meat (gaļa: liellopa gaļa, vista, cūkgaļa, maltā gaļa, kotletes, cīsiņi, desa, šašliks)
 - fish (zivis: zivis, zivju filejas, vēzis, krabji)
 - dairy (piena produkti: piens, siers, jogurts, krējums, biezpiens, sviests, kefīrs)
 - eggs (olas: vistas olas, pīļu olas)
@@ -554,22 +550,18 @@ Kategorijas:
 - grains (graudi: rīsi, griķi, auzas, kvieši, makaroni)
 - snacks (uzkodas: čipsi, saldumi, rieksti, sēklas, kūkas)
 - ready_meals (gatavie ēdieni: salāti, zupas, ēdieni uzreiz)
-- beverages (dzērieni: ūdens, sula, kafija, tēja, limonāde, kvass)
-- alcohol (alkohols: vīns, vodka, alus, degvīns, konjaks, šampanietis)
-- deli (sausā gaļa: cīsiņi, desa, šašliks, kūpināta gaļa, sieriņi)
-- baby_food (bērnu barība: bērnu barība, bērnu cīsiņi, bērnu jogurts, bērnu sula)
+- beverages (dzērieni: ūdens, sula, kafija, tēja, limonāde, kvass, vīns, vodka, alus, degvīns)
 - household (mājsaimniecība: šampūns, zobu birste, papīrs, ziepes)
 - hygiene (higiēna: zobu pasta, šampūns, ziepes, kremas)
 - pet (mājdzīvniekiem: suņu barība, kaķu barība, putnu barība)
 - international (starptautiskie produkti: ķīniešu ēdieni, japāņu ēdieni)
 - construction (būvniecība: krāsa, skrūves, dēļi)
-- other (cits: ja nevar noteikt kategoriju)
 
 Svarīgi:
-- "sarkanvīns" → alcohol (nevis beverages)
-- "vodka" → alcohol (nevis beverages) 
-- "cīsiņi" → deli (nevis meat)
-- "bērnu cīsiņi" → baby_food (nevis deli)
+- "sarkanvīns" → beverages (alkohols ir dzērieni)
+- "vodka" → beverages (alkohols ir dzērieni) 
+- "cīsiņi" → meat (sausā gaļa ir gaļa)
+- "bērnu cīsiņi" → meat (bērnu gaļa ir gaļa)
 - "dore blue siers" → dairy (saglabājot pilno nosaukumu)
 - "bezlaktozes jogurts" → dairy (saglabājot pilno nosaukumu)
 
