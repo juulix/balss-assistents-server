@@ -1,11 +1,5 @@
-# Railway configuration for Balss Assistents Server
-
 [build]
 command = "npm install"
 
 [deploy]
 startCommand = "npm start"
-healthcheckPath = "/api/health"
-
-# Environment variables needed:
-# OPENAI_API_KEY=sk-proj-...
