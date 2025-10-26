@@ -22,6 +22,17 @@ if (process.env.SENTRY_DSN) {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Simple in-memory cache for responses
+const responseCache = new Map();
+const CACHE_TTL = 60 * 60 * 1000; // 1 hour
+const MAX_CACHE_SIZE = 1000; // Maximum 1000 cached responses
+
+// Clean cache periodically
+setInterval(() => {
+  responseCache.clear();
+  console.log('🗑️ Cache cleared');
+}, CACHE_TTL);
+
 // Sentry middleware
 if (process.env.SENTRY_DSN) {
   app.use(Sentry.requestHandler());
@@ -165,6 +176,12 @@ const openai = new OpenAI({
 const dbPath = path.join(__dirname, 'products.db');
 const db = new sqlite3.Database(dbPath);
 
+// Configure database with timeout
+db.configure("busy_timeout", 3000); // 3 second timeout
+db.configure("synchronous", "NORMAL"); // Balance between safety and speed
+
+console.log('✅ Database configured with timeout');
+
 // Initialize database
 db.serialize(() => {
   // Products table - stores all products with their categories
@@ -214,6 +231,15 @@ db.serialize(() => {
     stmt.run(cat.name, cat.icon, cat.slug, cat.aisle_order);
   });
   stmt.finalize();
+  
+  // Create indexes for better performance
+  db.run(`CREATE INDEX IF NOT EXISTS idx_normalized_name ON products(normalized_name)`);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_category ON products(category)`);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_usage_count ON products(usage_count DESC)`);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_name ON products(name)`);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_updated_at ON products(updated_at DESC)`);
+  
+  console.log('✅ Database indexes created');
 });
 
 // Helper functions
@@ -294,50 +320,80 @@ app.post('/api/classify-products', async (req, res) => {
 
     console.log(`🤖 [${req.requestId}] Classifying ${products.length} products:`, products);
 
-    // Check database first for known products
+    // Check cache first
+    const cacheKey = JSON.stringify(products.sort());
+    if (responseCache.has(cacheKey)) {
+      console.log(`✅ [${req.requestId}] Cache hit - returning cached response`);
+      return res.json(responseCache.get(cacheKey));
+    }
+
+    // BATCH PROCESSING: Check database first for known products
+    const normalizedNames = products.map(p => normalizeInput(p));
+    const placeholders = normalizedNames.map(() => '?').join(',');
+    
+    // Single batch query instead of N+1 queries
+    const knownProductsMap = await new Promise((resolve, reject) => {
+      db.all(
+        `SELECT * FROM products WHERE normalized_name IN (${placeholders})`,
+        normalizedNames,
+        (err, rows) => {
+          if (err) reject(err);
+          else resolve(rows);
+        }
+      );
+    });
+
+    // Create lookup map for quick access
+    const knownProductsDict = {};
+    knownProductsMap.forEach(row => {
+      knownProductsDict[row.normalized_name] = row;
+    });
+
     const knownProducts = [];
     const unknownProducts = [];
+    const productMap = new Map(); // Map products to their normalized names
 
-    for (const product of products) {
-      const normalizedName = normalizeInput(product);
+    products.forEach((product, index) => {
+      const normalizedName = normalizedNames[index];
+      productMap.set(normalizedName, product);
       
-      const existingProduct = await new Promise((resolve, reject) => {
-        db.get(
-          'SELECT * FROM products WHERE normalized_name = ?',
-          [normalizedName],
-          (err, row) => {
-            if (err) reject(err);
-            else resolve(row);
-          }
-        );
-      });
-
-      if (existingProduct) {
-        // Update usage count
-        db.run(
-          'UPDATE products SET usage_count = usage_count + 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-          [existingProduct.id]
-        );
-        
+      if (knownProductsDict[normalizedName]) {
         knownProducts.push({
           product: product,
-          category: existingProduct.category,
-          confidence: existingProduct.confidence,
-          source: existingProduct.source
+          category: knownProductsDict[normalizedName].category,
+          confidence: knownProductsDict[normalizedName].confidence,
+          source: knownProductsDict[normalizedName].source
         });
       } else {
         unknownProducts.push(product);
       }
+    });
+
+    // Batch update usage counts for known products
+    const knownIds = Object.values(knownProductsDict).map(row => row.id);
+    if (knownIds.length > 0) {
+      const updatePlaceholders = knownIds.map(() => '?').join(',');
+      db.run(
+        `UPDATE products SET usage_count = usage_count + 1, updated_at = CURRENT_TIMESTAMP WHERE id IN (${updatePlaceholders})`,
+        knownIds
+      );
     }
 
     // If all products are known, return immediately
     if (unknownProducts.length === 0) {
       console.log(`✅ [${req.requestId}] All products found in database`);
-      return res.json({ 
+      const response = { 
         classifications: knownProducts,
         cached: true,
         requestId: req.requestId
-      });
+      };
+      
+      // Cache the response
+      if (responseCache.size < MAX_CACHE_SIZE) {
+        responseCache.set(cacheKey, response);
+      }
+      
+      return res.json(response);
     }
 
     // Use AI for unknown products
@@ -361,13 +417,21 @@ app.post('/api/classify-products', async (req, res) => {
 
     // Combine known and AI classifications
     const allClassifications = [...knownProducts, ...aiResults];
-
-    res.json({
+    
+    const response = {
       classifications: allClassifications,
       cached: false,
       aiUsed: true,
       requestId: req.requestId
-    });
+    };
+    
+    // Cache the response
+    if (responseCache.size < MAX_CACHE_SIZE) {
+      responseCache.set(cacheKey, response);
+      console.log(`💾 [${req.requestId}] Response cached (size: ${responseCache.size})`);
+    }
+
+    res.json(response);
 
   } catch (error) {
     console.error('❌ Classification error:', error);
