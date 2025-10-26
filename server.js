@@ -176,11 +176,7 @@ const openai = new OpenAI({
 const dbPath = path.join(__dirname, 'products.db');
 const db = new sqlite3.Database(dbPath);
 
-// Configure database with timeout
-db.configure("busy_timeout", 3000); // 3 second timeout
-db.configure("synchronous", "NORMAL"); // Balance between safety and speed
-
-console.log('✅ Database configured with timeout');
+console.log('✅ Database initialized');
 
 // Initialize database
 db.serialize(() => {
