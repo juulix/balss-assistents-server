@@ -1,0 +1,530 @@
+term,slug
+burkāni,vegetables
+kartupeļi,vegetables
+sīpoli,vegetables
+ķiploki,vegetables
+tomāti,vegetables
+gurķi,vegetables
+paprika,vegetables
+brokoļi,vegetables
+ziedkāposti,vegetables
+salāti,vegetables
+spināti,vegetables
+rukola,vegetables
+ledussalāti,vegetables
+kabači,vegetables
+cukini,vegetables
+baklažāni,vegetables
+biete,vegetables
+redīsi,vegetables
+selerija kāti,vegetables
+puravi,vegetables
+kāposti,vegetables
+pekinas kāposti,vegetables
+skābēti kāposti,vegetables
+dilles,vegetables
+pētersīļi,vegetables
+koriandrs,vegetables
+loki,vegetables
+svaigi zirņi,vegetables
+zaļās pupiņas,vegetables
+kukurūza,vegetables
+avokado,vegetables
+čili pipari,vegetables
+jalapeno,vegetables
+rabarberi,vegetables
+ingvers,vegetables
+citronzāle,vegetables
+saldie kartupeļi,vegetables
+fenhelis,vegetables
+ķirbis,vegetables
+moli,vegetables
+sparģeļi,vegetables
+mangolds,vegetables
+redīsu lapiņas,vegetables
+rukolas saišķis,vegetables
+microgreens,vegetables
+zaļumi saišķis,vegetables
+salātu mix,vegetables
+ķirštomāti,vegetables
+plūmju tomāti,vegetables
+ķirbja šķēle,vegetables
+āboli,fruits
+bumbieri,fruits
+banāni,fruits
+apelsīni,fruits
+mandarīni,fruits
+greipfrūti,fruits
+citrons,fruits
+laims,fruits
+kivi,fruits
+mango,fruits
+persiki,fruits
+nektarīni,fruits
+plūmes,fruits
+melones,fruits
+arbūzs,fruits
+vīnogas,fruits
+mellenes,fruits
+zemenes,fruits
+aveņu kaste,fruits
+upenes,fruits
+brūklenes,fruits
+dzērvenes,fruits
+hurma,fruits
+granātābols,fruits
+ananas,fruits
+kokosrieksts,fruits
+kaltēti āboli,fruits
+kaltētas plūmes,fruits
+rozīnes,fruits
+kaltēti aprikozes,fruits
+žāvēti dateles,fruits
+žāvēti vīģes,fruits
+banānu šķēles,fruits
+zemesrieksti medū,fruits
+indijas rieksti,fruits
+lazdu rieksti,fruits
+mandeles,fruits
+valrieksti,fruits
+pistācijas,fruits
+ķirši,fruits
+melnās jāņogas,fruits
+aronijas,fruits
+citrona sula,fruits
+laima sula,fruits
+ābolu biezenis,fruits
+augļu mix,fruits
+augļu grozs,fruits
+saldētas ogas,fruits
+saldētas mellenes,fruits
+saldētas zemenes,fruits
+vistas fileja,meat
+vistas šķiņķi,meat
+vistas spārniņi,meat
+vistas stilbiņi,meat
+malta vista,meat
+tītara fileja,meat
+tītara malta gaļa,meat
+liellopa fileja,meat
+liellopa steiks,meat
+liellopa malta gaļa,meat
+cūkgaļas kakla karbonāde,meat
+cūkgaļas karbonāde,meat
+cūkgaļas fileja,meat
+cūkgaļas malta gaļa,meat
+speķis,meat
+bekons,meat
+desa,meat
+doktor desa,meat
+cīsiņi,meat
+salami,meat
+prosciutto,meat
+šinka,meat
+vītināta gaļa,meat
+žāvēta gaļa,meat
+svaiga desa,meat
+kupāti,meat
+asinsdesa,meat
+aknas,meat
+vistas aknas,meat
+cūkas aknas,meat
+liellopa aknas,meat
+gaļas bumbiņas,meat
+šmorējamā gaļa,meat
+gaļas gabals sautēšanai,meat
+kebaba gaļa,meat
+kotlešu masa,meat
+lasis,fish
+lasis fileja,fish
+forele,fish
+foreles fileja,fish
+heks,fish
+plekste,fish
+menca,fish
+zivs fileja,fish
+tunzivs konservi,fish
+sardīnes konservi,fish
+šprotes eļļā,fish
+ķilavas,fish
+siļķe,fish
+siļķe mērcē,fish
+ikri,fish
+zivju pirkstiņi,fish
+kalmāri,fish
+garneļu aste,fish
+garneles,fish
+mīdijas,fish
+siļķe burciņā,fish
+tunča steiks,fish
+sardīnes tomātu mērcē,fish
+konservēta zivs,fish
+majonēzes siļķe,fish
+piens,dairy
+vājpiena piens,dairy
+laktozes nesaturošs piens,dairy
+auzu piens,dairy
+mandeļu piens,dairy
+sojas piens,dairy
+biezpiens,dairy
+vājpiena biezpiens,dairy
+krējums,dairy
+skābais krējums,dairy
+jogurts,dairy
+grieķu jogurts,dairy
+bezlaktozes jogurts,dairy
+kefīrs,dairy
+sviests,dairy
+ghī sviests,dairy
+siers,dairy
+čedara siers,dairy
+gouda siers,dairy
+mozarella siers,dairy
+ricotta,dairy
+parmezāns,dairy
+fetaki tipa siers,dairy
+krēmsiers,dairy
+biezpiena sieriņi,dairy
+skābpiena dzēriens,dairy
+saldais krējums,dairy
+krējuma siers,dairy
+kondensētais piens,dairy
+piena pulveris,dairy
+olas,eggs
+brīvos apstākļos turētas olas,eggs
+paipalu olas,eggs
+maize,bakery
+rudzu maize,bakery
+baltmaize,bakery
+pilngraudu maize,bakery
+graudu maize,bakery
+bagete,bakery
+tosta maize,bakery
+lavašs,bakery
+sklandrauši,bakery
+pīrādziņi,bakery
+bulciņas,bakery
+kruasāni,bakery
+sviesta kruasāni,bakery
+kūka,bakery
+torte,bakery
+cepumi,bakery
+auzu pārslu cepumi,bakery
+saldie kliņģeri,bakery
+kanēļmaizītes,bakery
+saldās bulciņas,bakery
+picas pamatne,bakery
+lavaša loksne,bakery
+lavaša ruļļi,bakery
+rīsi,grains
+basmati rīsi,grains
+jasmīna rīsi,grains
+griķi,grains
+auzu pārslas,grains
+manna,grains
+kukurūzas pārslas,grains
+kvinoja,grains
+kuskuss,grains
+bulgurs,grains
+makaroni,grains
+spageti,grains
+penne,grains
+fusilli,grains
+pilngraudu makaroni,grains
+rīsu nūdeles,grains
+olu nūdeles,grains
+tortiljas,grains
+taco čaulas,grains
+graudu mix,grains
+pērļu grūbas,grains
+mieži,grains
+prosa,grains
+amarants,grains
+maizes drupatas,grains
+rīvmaize,grains
+sāls,condiments
+jūras sāls,condiments
+himalaju sāls,condiments
+pipari,condiments
+melnie pipari,condiments
+ķiploku pulveris,condiments
+paprikas pulveris,condiments
+kurkuma,condiments
+kanēlis,condiments
+krustnagliņas,condiments
+garam masala,condiments
+karija pulveris,condiments
+čili pulveris,condiments
+čilli pārslas,condiments
+oregano,condiments
+baziliks,condiments
+timiāns,condiments
+rozmarīns,condiments
+lauru lapas,condiments
+ingvera pulveris,condiments
+dilles kaltētas,condiments
+pētersīļi kaltēti,condiments
+provansas garšvielas,condiments
+sojas mērce,condiments
+terijaki mērce,condiments
+kečups,condiments
+majonēze,condiments
+sinepes,condiments
+BBQ mērce,condiments
+pesto,condiments
+olīveļļa,condiments
+rapšu eļļa,condiments
+saulespuķu eļļa,condiments
+balzamiko etiķis,condiments
+vīnogu etiķis,condiments
+ābolu etiķis,condiments
+rīsu etiķis,condiments
+medus,condiments
+agaves sīrups,condiments
+ahorn sīrups,condiments
+cukurs,condiments
+cukuru pulveris,condiments
+brūnais cukurs,condiments
+glazūras cukurs,condiments
+izcepamā soda,condiments
+cepamais pulveris,condiments
+vaniļas cukurs,condiments
+kakao pulveris,condiments
+želatīns,condiments
+tomātu pasta,condiments
+šokolāde,snacks
+tumšā šokolāde,snacks
+piena šokolāde,snacks
+šokolādes batoniņš,snacks
+karamele,snacks
+konfektes,snacks
+čipsi,snacks
+tortilju čipsi,snacks
+popkorns,snacks
+riekstu mix,snacks
+sausmaizītes,snacks
+sīkdatnes,snacks
+vafeles,snacks
+prjaņiki,snacks
+medus kūka gabals,snacks
+saldējums,snacks
+eskimo,snacks
+saldējuma vafeļu glāzīte,snacks
+žāvēti augļi,snacks
+maršmelou,snacks
+proteīna batoniņš,snacks
+enerģijas batoniņš,snacks
+kornīši,snacks
+saldais popkorns,snacks
+sāļais popkorns,snacks
+krekeri,snacks
+banānu čipsi,snacks
+kokosriekstu skaidiņas,snacks
+pelmeņi,ready_meals
+vareniki,ready_meals
+picas sagatave,ready_meals
+saldēta pica,ready_meals
+saldēti dārzeņi,ready_meals
+sautējums burciņā,ready_meals
+karijs gatavs,ready_meals
+zupa bundžā,ready_meals
+konservēti dārzeņi,ready_meals
+smēriņš maizēm,ready_meals
+humoss,ready_meals
+guakamole,ready_meals
+tomātu mērce,ready_meals
+boloņas mērce,ready_meals
+pesto mērce,ready_meals
+pupiņas tomātu mērcē,ready_meals
+konservētas pupiņas,ready_meals
+konservēta kukurūza,ready_meals
+konservēti zirņi,ready_meals
+tvaicēti rīsi gatavi,ready_meals
+grauzdiņi ar piedevām,ready_meals
+gatavā mīkla,ready_meals
+sviesta mīkla,ready_meals
+picas mīkla,ready_meals
+pankūku mīkla,ready_meals
+pildīti pipari,ready_meals
+ūdens,beverages
+gāzēts ūdens,beverages
+negāzēts ūdens,beverages
+minerālūdens,beverages
+citrus ūdens,beverages
+toniks,beverages
+kola,beverages
+coca cola,beverages
+pepsi,beverages
+fanta,beverages
+sprite,beverages
+sula,beverages
+ābolu sula,beverages
+apelsīnu sula,beverages
+tomātu sula,beverages
+nektārs,beverages
+limonāde,beverages
+kefīrs dzēriens,beverages
+kakao dzēriens,beverages
+kafija pupiņas,beverages
+maltā kafija,beverages
+šķīstošā kafija,beverages
+kafijas kapsulas,beverages
+tēja melnā,beverages
+tēja zaļā,beverages
+zāļu tēja,beverages
+matcha,beverages
+enerģijas dzēriens,beverages
+izotoniskais dzēriens,beverages
+bezalkoholisks kokteilis,beverages
+auzu dzēriens,beverages
+mandeļu dzēriens,beverages
+sojas dzēriens,beverages
+proteīna dzēriens,beverages
+melnā tēja,beverages
+zaļā tēja,beverages
+tualetes papīrs,household
+papīra dvieļi,household
+salvetes,household
+mitrās salvetes,household
+sadzīves maisiņi,household
+atkritumu maisi,household
+pārtikas plēve,household
+folija,household
+cepamais papīrs,household
+sērkociņi,household
+baterijas,household
+veļas pulveris,household
+veļas kapsulas,household
+veļas mīkstinātājs,household
+trauku mazgāšanas līdzeklis,household
+trauku švamme,household
+trauku birste,household
+virsmu tīrītājs,household
+logu tīrītājs,household
+grīdas tīrītājs,household
+tualetes tīrītājs,household
+balinātājs,household
+dezinfekcijas līdzeklis,household
+atkaļķotājs,household
+putekļsūcēja maisiņi,household
+sadzīves cimdi pāris,household
+sadzīves cimdi,household
+saspraudes,household
+gumijas cimdi,household
+mopas uzgalis,household
+zobu pasta,hygiene
+zobu birste,hygiene
+mutes skalojamais,hygiene
+diegs zobiem,hygiene
+dušas želeja,hygiene
+šampūns,hygiene
+balzams matiem,hygiene
+kondicionieris matiem,hygiene
+ziepes,hygiene
+roku ziepes,hygiene
+dezodorants,hygiene
+antiperspirants,hygiene
+skuveklis,hygiene
+skuvekļa asmeņi,hygiene
+skūšanās putas,hygiene
+losjons pēc skūšanās,hygiene
+krēms sejai,hygiene
+krēms rokām,hygiene
+ķermeņa losjons,hygiene
+lūpu balzams,hygiene
+higiēniskās paketes,hygiene
+tamponi,hygiene
+pampersi,hygiene
+mitrās salvetes bērniem,hygiene
+vates kociņi,hygiene
+vates plāksnītes,hygiene
+nagu lakas noņēmējs,hygiene
+nagu laka,hygiene
+higiēnas komplekts,hygiene
+kaķu barība,pet
+suņu barība,pet
+kaķu smiltis,pet
+kaķu konservi,pet
+suņu konservi,pet
+kaķa rotaļlietas,pet
+suņa rotaļlieta,pet
+suņu kārumi,pet
+kaķu kārumi,pet
+pakaiši,pet
+kaķu bļoda,pet
+suņu bļoda,pet
+pavada,pet
+kakla siksna,pet
+pakaišu lāpstiņa,pet
+dāvanu maisiņš,other
+sveces,other
+sērkociņu kastīte,other
+lukturītis,other
+USB kabelis,other
+spuldzīte LED,other
+skavas,other
+grāmata,other
+žurnāls,other
+pildspalva,other
+marķieris,other
+līmlente,other
+līmes zīmulis,other
+bateriju komplekts,other
+iekštelpu augs,other
+puķu pods,other
+aizsargplēve telefonam,other
+autosalvetes,other
+autokosmētika,other
+auto smarža,other
+coca-cola,beverages
+pepsi max,beverages
+sprite zero,beverages
+fanta exotic,beverages
+red bull,beverages
+monster,beverages
+bonaqua,beverages
+Baltais jogurts,dairy
+Baltais piens,dairy
+Valmiera piens,dairy
+Valmiera kefīrs,dairy
+Kārums sieriņi,dairy
+Kārums biezpiens,dairy
+Lāču maize,bakery
+Hanzas maize,bakery
+Fazer tosts,bakery
+Laima šokolāde,snacks
+Laima konfektes,snacks
+Selga cepumi,snacks
+Fairy trauku līdzeklis,household
+Somat tabletes,household
+Finish tabletes,household
+Domestos tīrītājs,household
+Cif krēms,household
+Colgate zobu pasta,hygiene
+Sensodyne zobu pasta,hygiene
+Oral-B birste,hygiene
+Head & Shoulders šampūns,hygiene
+burciņa medus,condiments
+baltais cukurs,condiments
+čaulās olas,eggs
+bezlaktozes piens,dairy
+laktozes brīvs piens,dairy
+bezglutēna makaroni,grains
+bezglutēna maize,bakery
+nesaldināts jogurts,dairy
+grieķu jogurts 2%,dairy
+sviesta plāksnīte,dairy
+krēms kūkām,dairy
+piens 2.5%,dairy
+piens 3.2%,dairy
+cepumu izlase,snacks
+zemesriekstu sviests,condiments
+riekstu krēms,condiments
+auzu pārslu putra,grains
+pannas eļļa,condiments
+olīvas,condiments
+pārslas brokastīm,grains
+musli,grains
+bērnu autiņi,hygiene
+kaķu kārums,pet
+suņu kārums,pet
