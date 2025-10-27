@@ -469,13 +469,15 @@ app.post('/api/correct-names', async (req, res) => {
     // Use OpenAI to correct product names
     const productList = products.join(', ');
     
-    const systemMessage = "Tu esi eksperts latviešu valodā. Labo produktu nosaukumus, lai tie būtu gramatiski pareizi un skaidri. SAGLABĀJ brand nosaukumus un specifiskus aprakstus. Ja nosaukums jau ir pareizs, atstāj to nemainītu. Atbildi tikai JSON formātā.";
+    const systemMessage = "Tu esi eksperts latviešu valodā. Labo produktu nosaukumus, lai tie būtu gramatiski pareizi un skaidri. SAGLABĀJ brand nosaukumus, personu vārdus, ciparus un specifiskus aprakstus. Ja nosaukums jau ir pareizs, atstāj to nemainītu. Atbildi tikai JSON formātā.";
     const userMessage = `Labo šos produktu nosaukumus latviešu valodā: ${productList}
 
-Svarīgi - SAGLABĀJ:
-- Brand nosaukumus: "dore blue siers" → "dore blue siers" (NEMAINĪT)
-- Specifiskus aprakstus: "bērnu cīsiņi" → "bērnu cīsiņi" (NEMAINĪT)
-- Produktu veidus: "bezlaktozes jogurts" → "bezlaktozes jogurts" (NEMAINĪT)
+Svarīgi - SAGLABĀJ (NEMAINĪT):
+- Brand nosaukumus: "dore blue siers" → "dore blue siers"
+- Personu vārdus: "WhatsApp sapulce ar Silardu" → "WhatsApp sapulce ar Silardu"
+- Ciparus un datus: "projekts 2024" → "projekts 2024"
+- Specifiskus aprakstus: "bērnu cīsiņi" → "bērnu cīsiņi"
+- Produktu veidus: "bezlaktozes jogurts" → "bezlaktozes jogurts"
 
 Labo gramatikas kļūdas un sajukumu:
 - "biespiena sieriņš" → "biezpiena sieriņš"
@@ -485,6 +487,10 @@ Labo gramatikas kļūdas un sajukumu:
 - "kefirs" → "kefīrs"
 - "purciņas" → "burciņas"
 - ⚠️ "purkšķus" → "burciņas"
+
+⚠️ NELABO ārā kontekstu un personu vārdus:
+- "WhatsApp sapulce ar Silardu" → NEMAINĪT (personvārds)
+- "Projekts 2024" → NEMAINĪT (cipars)
 
 Atbildi JSON formātā:
 {
