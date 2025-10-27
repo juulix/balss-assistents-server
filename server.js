@@ -9,6 +9,7 @@ const Sentry = require('@sentry/node');
 const OpenAI = require('openai');
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
+const fs = require('fs');
 
 // Initialize Sentry
 if (process.env.SENTRY_DSN) {
@@ -68,10 +69,28 @@ const databaseOperations = new client.Counter({
   labelNames: ["operation", "table"]
 });
 
+const dictHits = new client.Counter({
+  name: "dict_hits_total",
+  help: "Total dictionary hits (products found in dictionary)",
+  labelNames: ["slug"]
+});
+
+const dictMisses = new client.Counter({
+  name: "dict_misses_total",
+  help: "Total dictionary misses (products not found in dictionary)",
+  labelNames: []
+});
+
 register.registerMetric(httpRequests);
 register.registerMetric(httpLatency);
 register.registerMetric(aiClassifications);
 register.registerMetric(databaseOperations);
+register.registerMetric(dictHits);
+register.registerMetric(dictMisses);
+
+// Product dictionary in memory
+const productDict = new Map();
+const TAXONOMY_VERSION = process.env.TAXONOMY_VERSION || "1.0.0";
 
 // Middleware
 app.use(cors());
@@ -238,6 +257,42 @@ db.serialize(() => {
   console.log('✅ Database indexes created');
 });
 
+// Load product dictionary from CSV
+function loadProductDictionary() {
+  const dictPath = process.env.DICT_FILE || path.join(__dirname, 'data/ontology/products_base_lv_520.csv');
+  
+  try {
+    if (!fs.existsSync(dictPath)) {
+      console.warn(`⚠️ Dictionary file not found: ${dictPath}`);
+      return;
+    }
+    
+    const content = fs.readFileSync(dictPath, 'utf8');
+    const lines = content.split('\n');
+    
+    // Skip header (first line)
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) continue;
+      
+      const [term, slug] = line.split(',');
+      if (!term || !slug) continue;
+      
+      // Normalize term and store
+      const normalized = normalizeInput(term);
+      productDict.set(normalized, slug.trim());
+    }
+    
+    console.log(`✅ Loaded ${productDict.size} products from dictionary`);
+    
+  } catch (error) {
+    console.error(`❌ Failed to load product dictionary: ${error.message}`);
+  }
+}
+
+// Load dictionary on startup
+loadProductDictionary();
+
 // Helper functions
 function normalizeInput(input) {
   return input.toLowerCase()
@@ -347,6 +402,7 @@ app.post('/api/classify-products', async (req, res) => {
 
     const knownProducts = [];
     const unknownProducts = [];
+    const dictProducts = [];
     const productMap = new Map(); // Map products to their normalized names
 
     products.forEach((product, index) => {
@@ -354,13 +410,26 @@ app.post('/api/classify-products', async (req, res) => {
       productMap.set(normalizedName, product);
       
       if (knownProductsDict[normalizedName]) {
+        // From database
         knownProducts.push({
           product: product,
           category: knownProductsDict[normalizedName].category,
           confidence: knownProductsDict[normalizedName].confidence,
           source: knownProductsDict[normalizedName].source
         });
+      } else if (productDict.has(normalizedName)) {
+        // From dictionary
+        const category = productDict.get(normalizedName);
+        dictHits.inc({ slug: category });
+        dictProducts.push({
+          product: product,
+          category: validateAndMapCategory(category),
+          confidence: 1.0,
+          source: 'dictionary'
+        });
       } else {
+        // Need AI classification
+        dictMisses.inc();
         unknownProducts.push(product);
       }
     });
@@ -375,24 +444,27 @@ app.post('/api/classify-products', async (req, res) => {
       );
     }
 
-    // If all products are known, return immediately
+    // If all products are found (DB or dict), return immediately
     if (unknownProducts.length === 0) {
-      console.log(`✅ [${req.requestId}] All products found in database`);
+      console.log(`✅ [${req.requestId}] All products found (DB: ${knownProducts.length}, Dict: ${dictProducts.length})`);
       
-      // Validate all categories even from DB
-      const validatedKnownProducts = knownProducts.map(cls => ({
+      // Combine DB and dictionary results
+      const allClassifications = [...knownProducts, ...dictProducts];
+      
+      // Validate all categories
+      const validatedClassifications = allClassifications.map(cls => ({
         ...cls,
         category: validateAndMapCategory(cls.category)
       }));
       
       const response = { 
-        classifications: validatedKnownProducts,
+        classifications: validatedClassifications,
         cached: true,
         requestId: req.requestId
       };
       
       // Add taxonomy version header
-      res.set('X-Taxonomy-Version', '1.0.0');
+      res.set('X-Taxonomy-Version', TAXONOMY_VERSION);
       
       // Cache the response
       if (responseCache.size < MAX_CACHE_SIZE) {
@@ -422,8 +494,8 @@ app.post('/api/classify-products', async (req, res) => {
       );
     }
 
-    // Combine known and AI classifications
-    const allClassifications = [...knownProducts, ...aiResults];
+    // Combine known, dictionary, and AI classifications
+    const allClassifications = [...knownProducts, ...dictProducts, ...aiResults];
     
     // Validate all categories (including known ones from DB)
     const validatedClassifications = allClassifications.map(cls => ({
@@ -439,7 +511,7 @@ app.post('/api/classify-products', async (req, res) => {
     };
     
     // Add taxonomy version header
-    res.set('X-Taxonomy-Version', '1.0.0');
+    res.set('X-Taxonomy-Version', TAXONOMY_VERSION);
     
     // Cache the response
     if (responseCache.size < MAX_CACHE_SIZE) {
