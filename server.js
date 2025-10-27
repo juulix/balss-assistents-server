@@ -378,11 +378,21 @@ app.post('/api/classify-products', async (req, res) => {
     // If all products are known, return immediately
     if (unknownProducts.length === 0) {
       console.log(`✅ [${req.requestId}] All products found in database`);
+      
+      // Validate all categories even from DB
+      const validatedKnownProducts = knownProducts.map(cls => ({
+        ...cls,
+        category: validateAndMapCategory(cls.category)
+      }));
+      
       const response = { 
-        classifications: knownProducts,
+        classifications: validatedKnownProducts,
         cached: true,
         requestId: req.requestId
       };
+      
+      // Add taxonomy version header
+      res.set('X-Taxonomy-Version', '1.0.0');
       
       // Cache the response
       if (responseCache.size < MAX_CACHE_SIZE) {
@@ -400,10 +410,11 @@ app.post('/api/classify-products', async (req, res) => {
     // Track AI classifications
     aiClassifications.inc({ status: "success" }, unknownProducts.length);
     
-    // Save AI classifications to database
+    // Save AI classifications to database (already validated)
     for (const classification of aiResults) {
       const normalizedName = normalizeInput(classification.product);
       
+      // category is already validated by validateAndMapCategory
       db.run(
         `INSERT INTO products (name, normalized_name, category, confidence, source) 
          VALUES (?, ?, ?, ?, ?)`,
@@ -414,12 +425,21 @@ app.post('/api/classify-products', async (req, res) => {
     // Combine known and AI classifications
     const allClassifications = [...knownProducts, ...aiResults];
     
+    // Validate all categories (including known ones from DB)
+    const validatedClassifications = allClassifications.map(cls => ({
+      ...cls,
+      category: validateAndMapCategory(cls.category)
+    }));
+    
     const response = {
-      classifications: allClassifications,
+      classifications: validatedClassifications,
       cached: false,
       aiUsed: true,
       requestId: req.requestId
     };
+    
+    // Add taxonomy version header
+    res.set('X-Taxonomy-Version', '1.0.0');
     
     // Cache the response
     if (responseCache.size < MAX_CACHE_SIZE) {
@@ -457,12 +477,14 @@ Svarīgi - SAGLABĀJ:
 - Specifiskus aprakstus: "bērnu cīsiņi" → "bērnu cīsiņi" (NEMAINĪT)
 - Produktu veidus: "bezlaktozes jogurts" → "bezlaktozes jogurts" (NEMAINĪT)
 
-Labo tikai gramatikas kļūdas:
+Labo gramatikas kļūdas un sajukumu:
 - "biespiena sieriņš" → "biezpiena sieriņš"
 - "apelsinu sulu" → "apelsīnu sula" 
 - "balto vinu" → "baltais vīns"
 - "degvins" → "degvīns"
 - "kefirs" → "kefīrs"
+- "purciņas" → "burciņas"
+- ⚠️ "purkšķus" → "burciņas"
 
 Atbildi JSON formātā:
 {
@@ -508,7 +530,10 @@ app.post('/api/learn', async (req, res) => {
 
     const normalizedName = normalizeInput(product);
     
-    // Update or insert the correct classification
+    // Validate category before saving
+  const validatedCategory = validateAndMapCategory(correctCategory);
+  
+  // Update or insert the correct classification
     db.run(
       `INSERT INTO products (name, normalized_name, category, confidence, source) 
        VALUES (?, ?, ?, ?, ?)
@@ -517,7 +542,7 @@ app.post('/api/learn', async (req, res) => {
        confidence = 1.0,
        source = 'manual',
        updated_at = CURRENT_TIMESTAMP`,
-      [product, normalizedName, correctCategory, 1.0, 'manual']
+      [product, normalizedName, validatedCategory, 1.0, 'manual']
     );
 
     console.log(`📚 Learned: "${product}" → "${correctCategory}"`);
@@ -593,6 +618,50 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Category mapping: alias → official slug
+const CATEGORY_MAPPING = {
+  // Garšvielas/piedevas
+  'spices': 'condiments',
+  'garšvielas': 'condiments',
+  'seasonings': 'condiments',
+  'herbs': 'condiments',
+  'garšvielām': 'condiments',
+  'spice': 'condiments',
+  'seasoning': 'condiments',
+  'herb': 'condiments',
+  
+  // Other mappings
+  'unknown': 'other'
+};
+
+// Official categories that app recognizes
+const OFFICIAL_CATEGORIES = [
+  'vegetables', 'fruits', 'meat', 'fish', 'dairy', 'eggs',
+  'bakery', 'grains', 'condiments', 'snacks', 'ready_meals',
+  'beverages', 'household', 'hygiene', 'pet', 'international',
+  'construction', 'other'
+];
+
+// Validate and map category
+function validateAndMapCategory(rawCategory) {
+  const lowercased = rawCategory.toLowerCase().trim();
+  
+  // 1. Pārbaudīt, vai ir oficiālā kategorija
+  if (OFFICIAL_CATEGORIES.includes(lowercased)) {
+    return lowercased;
+  }
+  
+  // 2. Map alias → oficiālais slug
+  if (CATEGORY_MAPPING[lowercased]) {
+    console.log(`📌 Category mapped: '${rawCategory}' → '${CATEGORY_MAPPING[lowercased]}'`);
+    return CATEGORY_MAPPING[lowercased];
+  }
+  
+  // 3. Fallback uz "other" + warning
+  console.warn(`⚠️ Unknown category: '${rawCategory}', defaulting to 'other'`);
+  return 'other';
+}
+
 // AI Classification function
 async function classifyWithAI(products) {
   const productList = products.join(', ');
@@ -608,6 +677,7 @@ Kategorijas:
 - eggs (olas)
 - bakery (maize un konditorejas izstrādājumi)
 - grains (graudi un makaroni)
+- condiments (piedevas - eļļa, garšvielas, mērces)
 - snacks (uzkodas)
 - ready_meals (gatavie ēdieni)
 - beverages (dzērieni - ūdens, sula, alkohols, kafija, tēja)
@@ -651,8 +721,14 @@ Atbildi JSON formātā: [{"product": "nosaukums", "category": "kategorija"}]`;
 
     const classifications = JSON.parse(cleanContent);
     
-    console.log(`✅ AI classified ${classifications.length} products`);
-    return classifications;
+    // Validate and map all categories before returning
+    const validatedClassifications = classifications.map(cls => ({
+      ...cls,
+      category: validateAndMapCategory(cls.category)
+    }));
+    
+    console.log(`✅ AI classified ${validatedClassifications.length} products`);
+    return validatedClassifications;
 
   } catch (error) {
     console.error('❌ AI Classification error:', error);
