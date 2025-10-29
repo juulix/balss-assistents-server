@@ -117,3 +117,4 @@ Vai vēlaties:
 
 **Es iesaku A)** - ātrākais un darbojas uzreiz!
 
+
