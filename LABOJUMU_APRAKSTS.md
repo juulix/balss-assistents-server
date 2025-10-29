@@ -102,3 +102,4 @@ Railway auto-deployēs pēc ~2 minūtēm.
 - [ ] DB migration lai labotu esošās "spices" kategorijas
 - [ ] Monitoring: cik reizes tiek izmantota "other" kategorija
 
+
