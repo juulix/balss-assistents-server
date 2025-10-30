@@ -22,6 +22,13 @@ if (process.env.SENTRY_DSN) {
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const REQUIRED_BEARER = process.env.APP_BEARER_TOKEN;
+
+// Fail-fast if required security config is missing
+if (!REQUIRED_BEARER) {
+  console.error('❌ APP_BEARER_TOKEN is not set. Refusing to start for security.');
+  process.exit(1);
+}
 
 // Simple in-memory cache for responses
 const responseCache = new Map();
@@ -118,6 +125,24 @@ app.use((req, res, next) => {
   next();
 });
 
+// Bearer auth for API endpoints (except public health/version)
+app.use((req, res, next) => {
+  // allowlist of public endpoints
+  const publicPaths = new Set([
+    '/',
+    '/api/health',
+    '/api/ready',
+    '/api/version'
+  ]);
+  if (publicPaths.has(req.path)) return next();
+  const auth = req.header('Authorization') || '';
+  const token = auth.startsWith('Bearer ') ? auth.slice('Bearer '.length) : '';
+  if (token !== REQUIRED_BEARER) {
+    return res.status(401).json({ error: 'unauthorized', requestId: req.requestId });
+  }
+  next();
+});
+
 // X-User-Id validation middleware
 app.use((req, res, next) => {
   const method = req.method?.toUpperCase();
@@ -175,9 +200,8 @@ const limiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
   max: 60, // 60 requests per minute
   keyGenerator: (req) => req.userId || req.ip,
-  message: { 
+  message: {
     error: "rate_limit_exceeded",
-    requestId: (req) => req.requestId,
     retryAfter: "1 minute"
   },
   standardHeaders: true,
@@ -350,7 +374,13 @@ app.get('/api/version', (req, res) => res.json({
   node: process.version
 }));
 
+// Protect metrics with bearer token
 app.get('/api/metrics', async (req, res) => {
+  const auth = req.header('Authorization') || '';
+  const token = auth.startsWith('Bearer ') ? auth.slice('Bearer '.length) : '';
+  if (token !== REQUIRED_BEARER) {
+    return res.status(401).json({ error: 'unauthorized', requestId: req.requestId });
+  }
   res.set('Content-Type', register.contentType);
   res.end(await register.metrics());
 });
