@@ -23,11 +23,15 @@ if (process.env.SENTRY_DSN) {
 const app = express();
 const PORT = process.env.PORT || 3000;
 const REQUIRED_BEARER = process.env.APP_BEARER_TOKEN;
+const REQUIRE_BEARER = String(process.env.REQUIRE_BEARER).toLowerCase() === 'true';
 
-// Fail-fast if required security config is missing
-if (!REQUIRED_BEARER) {
-  console.error('❌ APP_BEARER_TOKEN is not set. Refusing to start for security.');
+// Optional fail-fast: only when explicitly enabled
+if (REQUIRE_BEARER && !REQUIRED_BEARER) {
+  console.error('❌ REQUIRE_BEARER=true but APP_BEARER_TOKEN is not set. Refusing to start.');
   process.exit(1);
+}
+if (!REQUIRE_BEARER && !REQUIRED_BEARER) {
+  console.warn('⚠️ Bearer token enforcement is DISABLED (REQUIRE_BEARER=false). Server accepting requests without Authorization header.');
 }
 
 // Simple in-memory cache for responses
@@ -125,7 +129,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// Bearer auth for API endpoints (except public health/version)
+// Bearer auth for API endpoints (except public health/version) — only enforce if required
 app.use((req, res, next) => {
   // allowlist of public endpoints
   const publicPaths = new Set([
@@ -135,10 +139,12 @@ app.use((req, res, next) => {
     '/api/version'
   ]);
   if (publicPaths.has(req.path)) return next();
-  const auth = req.header('Authorization') || '';
-  const token = auth.startsWith('Bearer ') ? auth.slice('Bearer '.length) : '';
-  if (token !== REQUIRED_BEARER) {
-    return res.status(401).json({ error: 'unauthorized', requestId: req.requestId });
+  if (REQUIRE_BEARER) {
+    const auth = req.header('Authorization') || '';
+    const token = auth.startsWith('Bearer ') ? auth.slice('Bearer '.length) : '';
+    if (token !== REQUIRED_BEARER) {
+      return res.status(401).json({ error: 'unauthorized', requestId: req.requestId });
+    }
   }
   next();
 });
@@ -374,12 +380,14 @@ app.get('/api/version', (req, res) => res.json({
   node: process.version
 }));
 
-// Protect metrics with bearer token
+// Protect metrics with bearer token only if required
 app.get('/api/metrics', async (req, res) => {
-  const auth = req.header('Authorization') || '';
-  const token = auth.startsWith('Bearer ') ? auth.slice('Bearer '.length) : '';
-  if (token !== REQUIRED_BEARER) {
-    return res.status(401).json({ error: 'unauthorized', requestId: req.requestId });
+  if (REQUIRE_BEARER) {
+    const auth = req.header('Authorization') || '';
+    const token = auth.startsWith('Bearer ') ? auth.slice('Bearer '.length) : '';
+    if (token !== REQUIRED_BEARER) {
+      return res.status(401).json({ error: 'unauthorized', requestId: req.requestId });
+    }
   }
   res.set('Content-Type', register.contentType);
   res.end(await register.metrics());
