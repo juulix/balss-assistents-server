@@ -613,7 +613,7 @@ Atbildi JSON formātā:
     ];
 
     const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini", // gpt-5-nano has limited API support
+      model: "gpt-5-mini", // Testing GPT-5 mini
       messages: messages,
       max_tokens: 500,
       temperature: 0.1
@@ -817,7 +817,7 @@ Atbildi JSON formātā: [{"product": "nosaukums", "category": "kategorija"}]`;
 
   try {
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini", // gpt-5-nano has limited API support
+      model: "gpt-5-mini", // Testing GPT-5 mini
       messages: [
         { role: "system", content: "Tu esi eksperts pārtikas produktu klasifikācijā. Atbildi tikai JSON formātā." },
         { role: "user", content: prompt }
