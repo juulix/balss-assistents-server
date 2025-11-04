@@ -221,6 +221,77 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
+/* ===== OPENAI HELPER FUNCTIONS ===== */
+// Models that don't support temperature parameter (only default 1)
+const FIXED_TEMP_MODELS = new Set([
+  "gpt-4o-mini-transcribe",
+  "gpt-5-mini",
+  "gpt-realtime",
+  // Add other fixed-temp models here as needed
+]);
+
+/**
+ * Build OpenAI API parameters with automatic temperature handling
+ * @param {Object} params - API parameters
+ * @param {string} params.model - Model name
+ * @param {Array} params.messages - Messages array
+ * @param {string} [params.system] - System message (alternative to messages)
+ * @param {boolean} [params.json=false] - Use JSON response format
+ * @param {number} [params.max=300] - Max completion tokens
+ * @param {number|null} [params.temperature=0] - Temperature (0-2), null to omit
+ * @returns {Object} OpenAI API parameters
+ */
+function buildParams({ model, messages, system, json = false, max = 300, temperature = 0 }) {
+  const p = {
+    model,
+    max_completion_tokens: max,
+  };
+
+  if (messages) p.messages = messages;
+  if (system) {
+    // If system is provided separately, prepend it to messages or create new messages array
+    if (!messages) {
+      p.messages = [{ role: "system", content: system }];
+    } else {
+      // Prepend system message if not already present
+      const hasSystem = messages.some(m => m.role === "system");
+      if (!hasSystem) {
+        p.messages = [{ role: "system", content: system }, ...messages];
+      }
+    }
+  }
+
+  if (json) p.response_format = { type: "json_object" };
+
+  // Only include temperature if the model allows it
+  if (!FIXED_TEMP_MODELS.has(model) && temperature != null) {
+    p.temperature = temperature;
+  }
+
+  return p;
+}
+
+/**
+ * Safe OpenAI API call with automatic temperature retry
+ * @param {Object} params - OpenAI API parameters
+ * @returns {Promise} OpenAI API response
+ */
+async function safeCreate(params) {
+  try {
+    return await openai.chat.completions.create(params);
+  } catch (e) {
+    const msg = e?.error?.message || e?.message || "";
+    if (msg.includes("temperature") && msg.includes("Only the default (1) value is supported")) {
+      // Retry without temperature parameter
+      const clone = { ...params };
+      delete clone.temperature;
+      console.log(`⚠️ Temperature not supported for ${params.model}, retrying without temperature`);
+      return await openai.chat.completions.create(clone);
+    }
+    throw e;
+  }
+}
+
 // Database setup
 const dbPath = path.join(__dirname, 'products.db');
 const db = new sqlite3.Database(dbPath);
@@ -612,12 +683,15 @@ Atbildi JSON formātā:
       { role: "user", content: userMessage }
     ];
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-5-mini", // Testing GPT-5 mini
-      messages: messages,
-      max_completion_tokens: 500, // GPT-5 mini uses max_completion_tokens instead of max_tokens
-      temperature: 0.1
-    });
+    const response = await safeCreate(
+      buildParams({
+        model: "gpt-5-mini",
+        messages: messages,
+        json: true,
+        max: 500,
+        temperature: 0.1
+      })
+    );
 
     const content = response.choices[0].message.content.trim();
     console.log('🔧 AI correction response:', content);
@@ -816,15 +890,18 @@ Produkti: ${productList}
 Atbildi JSON formātā: [{"product": "nosaukums", "category": "kategorija"}]`;
 
   try {
-    const completion = await openai.chat.completions.create({
-      model: "gpt-5-mini", // Testing GPT-5 mini
-      messages: [
-        { role: "system", content: "Tu esi eksperts pārtikas produktu klasifikācijā. Atbildi tikai JSON formātā." },
-        { role: "user", content: prompt }
-      ],
-      max_completion_tokens: 1000, // GPT-5 mini uses max_completion_tokens instead of max_tokens
-      temperature: 0.1
-    });
+    const completion = await safeCreate(
+      buildParams({
+        model: "gpt-5-mini",
+        messages: [
+          { role: "system", content: "Tu esi eksperts pārtikas produktu klasifikācijā. Atbildi tikai JSON formātā." },
+          { role: "user", content: prompt }
+        ],
+        json: true,
+        max: 1000,
+        temperature: 0.1
+      })
+    );
 
     const content = completion.choices[0].message.content.trim();
     console.log('🤖 AI Response:', content);
