@@ -615,7 +615,7 @@ Atbildi JSON formātā:
     const response = await openai.chat.completions.create({
       model: "gpt-5-mini", // Testing GPT-5 mini
       messages: messages,
-      max_tokens: 500,
+      max_completion_tokens: 500, // GPT-5 mini uses max_completion_tokens instead of max_tokens
       temperature: 0.1
     });
 
@@ -822,7 +822,7 @@ Atbildi JSON formātā: [{"product": "nosaukums", "category": "kategorija"}]`;
         { role: "system", content: "Tu esi eksperts pārtikas produktu klasifikācijā. Atbildi tikai JSON formātā." },
         { role: "user", content: prompt }
       ],
-      max_tokens: 1000,
+      max_completion_tokens: 1000, // GPT-5 mini uses max_completion_tokens instead of max_tokens
       temperature: 0.1
     });
 
