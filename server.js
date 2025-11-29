@@ -853,48 +853,71 @@ function validateAndMapCategory(rawCategory) {
 }
 
 // AI Classification function
+// Enhanced to handle Latvian brand names, international products, and compound product names
 async function classifyWithAI(products) {
   const productList = products.join(', ');
   
-  const prompt = `Tu esi eksperts pārtikas produktu klasifikācijā. Analizē produktu nosaukumus un klasificē tos pēc loģiskas kategorijas.
+  const prompt = `Tu esi eksperts pārtikas produktu klasifikācijā LATVIEŠU valodā. Tev ir jāklasificē produkti no Latvijas veikalu iepirkumu sarakstiem.
 
-Kategorijas:
-- vegetables (dārzeņi)
-- fruits (augļi) 
-- meat (gaļa)
-- fish (zivis)
-- dairy (piena produkti)
+KATEGORIJAS (izmanto TIKAI šos slug nosaukumus):
+- vegetables (dārzeņi - kartupeļi, tomāti, gurķi, kāposti, bietes u.c.)
+- fruits (augļi - āboli, banāni, apelsīni, vīnogas, ogas u.c.)
+- meat (GAĻA un DESAS - visa veida gaļa, desas, šķiņķis, bekons, cīsiņi, salami, chorizo, prosciutto u.c.)
+- fish (zivis - lasis, forele, siļķe, garneles, tunzivis u.c.)
+- dairy (piena produkti - piens, siers, biezpiens, jogurts, sviests, krējums, kefīrs u.c.)
 - eggs (olas)
-- bakery (maize un konditorejas izstrādājumi)
-- grains (graudi un makaroni)
-- condiments (piedevas - eļļa, garšvielas, mērces)
-- snacks (uzkodas)
-- ready_meals (gatavie ēdieni)
-- beverages (dzērieni - ūdens, sula, alkohols, kafija, tēja)
-- household (mājsaimniecības preces)
-- hygiene (higiēnas preces)
-- pet (mājdzīvnieku barība)
-- international (starptautiskie produkti)
-- construction (būvmateriāli)
+- bakery (maize un konditorejas - maize, bulciņas, kruasāni, kūkas, cepumi u.c.)
+- grains (graudi un makaroni - rīsi, griķi, makaroni, spageti, auzu pārslas u.c.)
+- condiments (piedevas - eļļa, garšvielas, mērces, kečups, majonēze, sāls, pipari, cukurs, medus u.c.)
+- snacks (uzkodas - čipsi, šokolāde, konfektes, rieksti, saldējums u.c.)
+- ready_meals (gatavie ēdieni - pelmeņi, pica, konservi, saldēti ēdieni u.c.)
+- beverages (dzērieni - ūdens, sula, alus, vīns, kafija, tēja, limonāde u.c.)
+- household (mājsaimniecība - tīrīšanas līdzekļi, veļas pulveris, salvetes u.c.)
+- hygiene (higiēna - zobu pasta, šampūns, ziepes, dezodorants u.c.)
+- pet (mājdzīvniekiem - kaķu/suņu barība u.c.)
+- construction (būvniecība - krāsas, instrumenti u.c.)
 
-Analizē katru produktu:
-1. Identificē galveno produktu (piemēram, "vīns" no "Spānijas sarkanais vīns")
-2. Pievērs uzmanību aprakstošiem vārdiem (valsts, krāsa, veids)
-3. Klasificē pēc galvenā produkta, nevis aprakstošajiem vārdiem
-4. Ja produkts satur alkoholu, tas ir dzēriens
-5. Ja produkts ir gaļa, tas ir meat kategorija
-6. Ja produkts ir no piena, tas ir dairy kategorija
+SVARĪGI NOTEIKUMI:
+
+1. BRENDI UN RAŽOTĀJI:
+   - "Smiltenes biezpiens" → dairy (biezpiens ir galvenais produkts, Smiltene ir brends)
+   - "Valmieras piens" → dairy (piens ir galvenais produkts)
+   - "Kārums sieriņi" → dairy (sieriņi ir galvenais produkts)
+   - "Laima šokolāde" → snacks (šokolāde ir galvenais produkts)
+   - "Dore Blue siers" → dairy (siers ir galvenais produkts)
+
+2. STARPTAUTISKĀS DESAS UN GAĻA (VISI ir "meat" kategorijā):
+   - "spāņu desa", "čorizo", "chorizo" → meat
+   - "itāļu desa", "salami", "prosciutto" → meat
+   - "vācu desa", "bratwurst" → meat
+   - "poļu desa", "kielbasa" → meat
+   - "mortadella", "pepperoni" → meat
+
+3. PRODUKTI AR APRAKSTIEM:
+   - "liellopa maltā gaļa 600g" → meat (galvenais: gaļa)
+   - "vistas fileja marinēta ar ķiplokiem" → meat (galvenais: fileja/gaļa)
+   - "bezlaktozes piens 2.5%" → dairy (galvenais: piens)
+   - "grieķu jogurts ar zemenēm" → dairy (galvenais: jogurts)
+
+4. STARPTAUTISKIE SIERI (visi ir "dairy"):
+   - "mozzarella", "parmazāns", "čeders", "gouda", "brie" → dairy
+
+5. ALKOHOLS UN DZĒRIENI (visi ir "beverages"):
+   - "sarkanvīns", "baltvīns", "alus", "šampanietis" → beverages
 
 Produkti: ${productList}
 
-Atbildi JSON formātā: [{"product": "nosaukums", "category": "kategorija"}]`;
+Atbildi JSON formātā ar šādu struktūru:
+[{"product": "produkta nosaukums", "category": "category_slug"}]
+
+NEKAD neizmanto kategorijas, kas nav sarakstā augstāk!`;
 
   try {
     const completion = await safeCreate(
       buildParams({
         model: "gpt-5-mini",
         messages: [
-          { role: "system", content: "Tu esi eksperts pārtikas produktu klasifikācijā. Atbildi tikai JSON formātā." },
+          { role: "system", content: "Tu esi eksperts Latvijas pārtikas produktu klasifikācijā. Atbildi TIKAI JSON formātā. Klasificē produktus pēc to galvenā nosaukuma, ignorējot brendus un aprakstus." },
           { role: "user", content: prompt }
         ],
         json: true,
