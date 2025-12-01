@@ -808,6 +808,104 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// ==========================================
+// OCR TEXT NORMALIZATION ENDPOINTS
+// ==========================================
+
+// POST /api/ocr/normalize
+// AI-powered text normalization for OCR results
+// Cleans up OCR artifacts, fixes Latvian diacritics, and structures text
+app.post('/api/ocr/normalize', async (req, res) => {
+  try {
+    const { text, language = 'lv' } = req.body;
+    
+    if (!text || text.trim().length === 0) {
+      return res.status(400).json({ 
+        error: 'Text is required',
+        requestId: req.requestId 
+      });
+    }
+    
+    // Limit text length to prevent abuse
+    const maxLength = 10000;
+    if (text.length > maxLength) {
+      return res.status(400).json({ 
+        error: `Text too long. Maximum ${maxLength} characters allowed.`,
+        requestId: req.requestId 
+      });
+    }
+    
+    console.log(`📝 [${req.requestId}] OCR Normalize - Processing ${text.length} characters in ${language}`);
+    
+    const normalizedText = await normalizeOCRText(text, language);
+    
+    res.json({
+      original_text: text,
+      normalized_text: normalizedText,
+      language: language,
+      character_count: normalizedText.length,
+      requestId: req.requestId
+    });
+    
+  } catch (error) {
+    console.error(`❌ [${req.requestId}] OCR Normalize error:`, error);
+    res.status(500).json({ 
+      error: error.message || 'Failed to normalize text',
+      requestId: req.requestId 
+    });
+  }
+});
+
+// Helper: Normalize OCR text using GPT
+async function normalizeOCRText(text, language = 'lv') {
+  const systemPrompt = language === 'lv' 
+    ? `Tu esi teksta korekcijas asistents. Tavs uzdevums ir izlabot OCR (optiskās rakstzīmju atpazīšanas) kļūdas tekstā.
+
+Veic šādas korekcijas:
+1. Izlabo acīmredzamas drukas kļūdas un OCR artefaktus
+2. Pievieno pareizās latviešu diakritiskās zīmes (ā, ē, ī, ū, č, ģ, ķ, ļ, ņ, š, ž)
+3. Izlabo nepareizi sadalītus vārdus (piem. "lab dien" -> "labdien")
+4. Normalizē atstarpju un rindu pārrāvumus
+5. Saglabā oriģinālo teksta struktūru un nozīmi
+6. NESĀC atbildi ar "Labots teksts:" vai līdzīgu ievadu - atgriez TIKAI izlaboto tekstu
+
+Atgriez TIKAI izlaboto tekstu, bez paskaidrojumiem.`
+    : `You are a text correction assistant. Your task is to fix OCR (Optical Character Recognition) errors in text.
+
+Make these corrections:
+1. Fix obvious typos and OCR artifacts
+2. Add correct diacritical marks for the language
+3. Fix incorrectly split words
+4. Normalize spacing and line breaks
+5. Preserve original text structure and meaning
+6. DO NOT start with "Corrected text:" or similar - return ONLY the corrected text
+
+Return ONLY the corrected text, without explanations.`;
+
+  try {
+    const response = await safeCreate(
+      buildParams({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: text }
+        ],
+        temperature: 0.3, // Lower temperature for more consistent corrections
+        max: Math.min(text.length * 2, 4000) // Allow up to 2x expansion, max 4000 tokens
+      })
+    );
+
+    const normalizedText = response.choices[0].message.content.trim();
+    console.log(`✅ OCR text normalized: ${text.length} -> ${normalizedText.length} characters`);
+    
+    return normalizedText;
+  } catch (error) {
+    console.error('❌ GPT normalization error:', error);
+    // Return original text if normalization fails
+    return text;
+  }
+}
+
 // Category mapping: alias → official slug
 const CATEGORY_MAPPING = {
   // Garšvielas/piedevas
