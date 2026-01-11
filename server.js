@@ -355,7 +355,41 @@ db.serialize(() => {
   db.run(`CREATE INDEX IF NOT EXISTS idx_name ON products(name)`);
   db.run(`CREATE INDEX IF NOT EXISTS idx_updated_at ON products(updated_at DESC)`);
   
+  // Dart Master Pro tables
+  // Players table
+  db.run(`CREATE TABLE IF NOT EXISTS dart_players (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    avatar TEXT,
+    stats TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`);
+
+  // Games table
+  db.run(`CREATE TABLE IF NOT EXISTS dart_games (
+    id TEXT PRIMARY KEY,
+    type TEXT NOT NULL,
+    mode TEXT NOT NULL,
+    players TEXT NOT NULL,
+    winner TEXT,
+    player_stats TEXT NOT NULL,
+    legs_to_win INTEGER,
+    double_in BOOLEAN DEFAULT 0,
+    double_out BOOLEAN DEFAULT 0,
+    start_time INTEGER NOT NULL,
+    end_time INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`);
+
+  // Create indexes for dart tables
+  db.run(`CREATE INDEX IF NOT EXISTS idx_dart_games_start_time ON dart_games(start_time DESC)`);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_dart_games_end_time ON dart_games(end_time DESC)`);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_dart_games_winner ON dart_games(winner)`);
+  
   console.log('✅ Database indexes created');
+  console.log('✅ Dart Master Pro tables initialized');
 });
 
 // Load product dictionary from CSV
@@ -806,6 +840,144 @@ app.get('/api/health', (req, res) => {
     timestamp: new Date().toISOString(),
     version: '1.0.0'
   });
+});
+
+// ==========================================
+// DART MASTER PRO API ENDPOINTS
+// ==========================================
+
+// Get all players
+app.get('/api/dart/players', async (req, res) => {
+  try {
+    const players = await new Promise((resolve, reject) => {
+      db.all('SELECT * FROM dart_players ORDER BY created_at DESC', (err, rows) => {
+        if (err) reject(err);
+        else {
+          const parsed = rows.map(row => ({
+            ...row,
+            stats: JSON.parse(row.stats)
+          }));
+          resolve(parsed);
+        }
+      });
+    });
+    res.json({ players, requestId: req.requestId });
+  } catch (error) {
+    console.error('❌ Get players error:', error);
+    res.status(500).json({ error: 'Failed to get players', details: error.message, requestId: req.requestId });
+  }
+});
+
+// Save/Update player
+app.post('/api/dart/players', async (req, res) => {
+  try {
+    const { players } = req.body;
+    if (!players || !Array.isArray(players)) {
+      return res.status(400).json({ error: 'Players array is required', requestId: req.requestId });
+    }
+
+    const stmt = db.prepare(`INSERT OR REPLACE INTO dart_players (id, name, avatar, stats, updated_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)`);
+    
+    for (const player of players) {
+      stmt.run(
+        player.id,
+        player.name,
+        player.avatar || '',
+        JSON.stringify(player.stats || {})
+      );
+    }
+    stmt.finalize();
+
+    res.json({ success: true, message: `Saved ${players.length} player(s)`, requestId: req.requestId });
+  } catch (error) {
+    console.error('❌ Save players error:', error);
+    res.status(500).json({ error: 'Failed to save players', details: error.message, requestId: req.requestId });
+  }
+});
+
+// Delete player
+app.delete('/api/dart/players/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    db.run('DELETE FROM dart_players WHERE id = ?', [id], function(err) {
+      if (err) {
+        return res.status(500).json({ error: 'Failed to delete player', details: err.message, requestId: req.requestId });
+      }
+      res.json({ success: true, message: 'Player deleted', requestId: req.requestId });
+    });
+  } catch (error) {
+    console.error('❌ Delete player error:', error);
+    res.status(500).json({ error: 'Failed to delete player', details: error.message, requestId: req.requestId });
+  }
+});
+
+// Get all games
+app.get('/api/dart/games', async (req, res) => {
+  try {
+    const games = await new Promise((resolve, reject) => {
+      db.all('SELECT * FROM dart_games ORDER BY start_time DESC', (err, rows) => {
+        if (err) reject(err);
+        else {
+          const parsed = rows.map(row => ({
+            id: row.id,
+            type: row.type,
+            mode: row.mode,
+            players: JSON.parse(row.players),
+            winner: row.winner,
+            playerStats: JSON.parse(row.player_stats),
+            legsToWin: row.legs_to_win,
+            doubleIn: Boolean(row.double_in),
+            doubleOut: Boolean(row.double_out),
+            startTime: row.start_time,
+            endTime: row.end_time
+          }));
+          resolve(parsed);
+        }
+      });
+    });
+    res.json({ games, requestId: req.requestId });
+  } catch (error) {
+    console.error('❌ Get games error:', error);
+    res.status(500).json({ error: 'Failed to get games', details: error.message, requestId: req.requestId });
+  }
+});
+
+// Save game
+app.post('/api/dart/games', async (req, res) => {
+  try {
+    const game = req.body;
+    if (!game || !game.id) {
+      return res.status(400).json({ error: 'Game object with id is required', requestId: req.requestId });
+    }
+
+    db.run(
+      `INSERT OR REPLACE INTO dart_games 
+       (id, type, mode, players, winner, player_stats, legs_to_win, double_in, double_out, start_time, end_time, updated_at) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+      [
+        game.id,
+        game.type || 'X01',
+        game.mode || '501',
+        JSON.stringify(game.players || []),
+        game.winner || null,
+        JSON.stringify(game.playerStats || {}),
+        game.legsToWin || null,
+        game.doubleIn ? 1 : 0,
+        game.doubleOut ? 1 : 0,
+        game.startTime || Date.now(),
+        game.endTime || null
+      ],
+      function(err) {
+        if (err) {
+          return res.status(500).json({ error: 'Failed to save game', details: err.message, requestId: req.requestId });
+        }
+        res.json({ success: true, message: 'Game saved', requestId: req.requestId });
+      }
+    );
+  } catch (error) {
+    console.error('❌ Save game error:', error);
+    res.status(500).json({ error: 'Failed to save game', details: error.message, requestId: req.requestId });
+  }
 });
 
 // ==========================================
