@@ -154,8 +154,10 @@ app.use((req, res, next) => {
   const method = req.method?.toUpperCase();
   const needsUser = ["POST", "PUT", "PATCH", "DELETE"].includes(method);
   const isPublicGet = method === "GET" && ["/api/health", "/api/categories", "/api/suggestions"].includes(req.path);
+  // Dart Master Pro endpoints don't require X-User-Id
+  const isDartEndpoint = req.path.startsWith('/api/dart/');
   
-  if (!needsUser || isPublicGet) return next();
+  if (!needsUser || isPublicGet || isDartEndpoint) return next();
   
   const userId = req.header("X-User-Id");
   if (!userId || !/^u-\d+-[a-z0-9]{8}$/.test(userId)) {
