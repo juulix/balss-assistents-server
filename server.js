@@ -295,10 +295,12 @@ async function safeCreate(params) {
 }
 
 // Database setup
-const dbPath = path.join(__dirname, 'products.db');
+// DB_PATH lets the file live on a persistent volume (e.g. /data/products.db on Railway);
+// without it the DB sits in the container filesystem and is lost on every redeploy.
+const dbPath = process.env.DB_PATH || path.join(__dirname, 'products.db');
 const db = new sqlite3.Database(dbPath);
 
-console.log('✅ Database initialized');
+console.log(`✅ Database initialized at ${dbPath}`);
 
 // Initialize database
 db.serialize(() => {
