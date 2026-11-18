@@ -40,10 +40,11 @@ const CACHE_TTL = 60 * 60 * 1000; // 1 hour
 const MAX_CACHE_SIZE = 1000; // Maximum 1000 cached responses
 
 // Clean cache periodically
+// unref: the timer alone should not keep the process alive (the HTTP server does)
 setInterval(() => {
   responseCache.clear();
   console.log('🗑️ Cache cleared');
-}, CACHE_TTL);
+}, CACHE_TTL).unref();
 
 // Sentry middleware
 if (process.env.SENTRY_DSN) {
@@ -301,6 +302,17 @@ const dbPath = process.env.DB_PATH || path.join(__dirname, 'products.db');
 const db = new sqlite3.Database(dbPath);
 
 console.log(`✅ Database initialized at ${dbPath}`);
+
+// Promise wrapper for write statements, so a database error reaches the
+// caller (try/catch or .catch) instead of being emitted as an unhandled event
+function dbRun(sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.run(sql, params, function (err) {
+      if (err) reject(err);
+      else resolve(this);
+    });
+  });
+}
 
 // Initialize database
 db.serialize(() => {
@@ -585,10 +597,12 @@ app.post('/api/classify-products', async (req, res) => {
     const knownIds = Object.values(knownProductsDict).map(row => row.id);
     if (knownIds.length > 0) {
       const updatePlaceholders = knownIds.map(() => '?').join(',');
-      db.run(
+      dbRun(
         `UPDATE products SET usage_count = usage_count + 1, updated_at = CURRENT_TIMESTAMP WHERE id IN (${updatePlaceholders})`,
         knownIds
-      );
+      ).catch(err => {
+        console.error(`❌ [${req.requestId}] Failed to update usage counts:`, err.message);
+      });
     }
 
     // If all products are found (DB or dict), return immediately
@@ -630,15 +644,22 @@ app.post('/api/classify-products', async (req, res) => {
     aiClassifications.inc({ status: "success" }, unknownProducts.length);
     
     // Save AI classifications to database (already validated)
+    // Each name is stored once: repeated names in one request are skipped and
+    // names that already exist are left as they are (INSERT OR IGNORE)
+    const savedNames = new Set();
     for (const classification of aiResults) {
       const normalizedName = normalizeInput(classification.product);
+      if (savedNames.has(classification.product)) continue;
+      savedNames.add(classification.product);
       
       // category is already validated by validateAndMapCategory
-      db.run(
-        `INSERT INTO products (name, normalized_name, category, confidence, source) 
+      dbRun(
+        `INSERT OR IGNORE INTO products (name, normalized_name, category, confidence, source) 
          VALUES (?, ?, ?, ?, ?)`,
         [classification.product, normalizedName, classification.category, 0.8, 'ai']
-      );
+      ).catch(err => {
+        console.error(`❌ [${req.requestId}] Failed to save classification:`, err.message);
+      });
     }
 
     // Combine known, dictionary, and AI classifications
@@ -752,7 +773,7 @@ app.post('/api/learn', async (req, res) => {
   try {
     const { product, correctCategory } = req.body;
     
-    if (!product || !correctCategory) {
+    if (!product || !correctCategory || typeof product !== 'string' || typeof correctCategory !== 'string') {
       return res.status(400).json({ error: 'Product and correctCategory are required' });
     }
 
@@ -762,10 +783,11 @@ app.post('/api/learn', async (req, res) => {
   const validatedCategory = validateAndMapCategory(correctCategory);
   
   // Update or insert the correct classification
-    db.run(
+  // (the products table is unique on name, so that is the conflict target)
+    await dbRun(
       `INSERT INTO products (name, normalized_name, category, confidence, source) 
        VALUES (?, ?, ?, ?, ?)
-       ON CONFLICT(normalized_name) DO UPDATE SET
+       ON CONFLICT(name) DO UPDATE SET
        category = excluded.category,
        confidence = 1.0,
        source = 'manual',
@@ -837,15 +859,6 @@ app.get('/api/categories', async (req, res) => {
   }
 });
 
-// 5. Health check
-app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'healthy', 
-    timestamp: new Date().toISOString(),
-    version: '1.0.0'
-  });
-});
-
 // ==========================================
 // DART MASTER PRO API ENDPOINTS
 // ==========================================
@@ -855,13 +868,15 @@ app.get('/api/dart/players', async (req, res) => {
   try {
     const players = await new Promise((resolve, reject) => {
       db.all('SELECT * FROM dart_players ORDER BY created_at DESC', (err, rows) => {
-        if (err) reject(err);
-        else {
+        if (err) return reject(err);
+        try {
           const parsed = rows.map(row => ({
             ...row,
             stats: JSON.parse(row.stats)
           }));
           resolve(parsed);
+        } catch (parseError) {
+          reject(parseError);
         }
       });
     });
@@ -872,6 +887,33 @@ app.get('/api/dart/players', async (req, res) => {
   }
 });
 
+// Limits for the players payload
+const MAX_PLAYERS_PER_REQUEST = 1000;
+const MAX_PLAYER_ID_LENGTH = 128;
+const MAX_PLAYER_NAME_LENGTH = 200;
+
+// Returns an error message for an invalid players array, or null when it is valid
+function validatePlayers(players) {
+  if (players.length > MAX_PLAYERS_PER_REQUEST) {
+    return `Too many players. Maximum ${MAX_PLAYERS_PER_REQUEST} allowed.`;
+  }
+  for (const player of players) {
+    if (!player || typeof player !== 'object' || Array.isArray(player)) {
+      return 'Each player must be an object';
+    }
+    if (typeof player.id !== 'string' || player.id.length === 0 || player.id.length > MAX_PLAYER_ID_LENGTH) {
+      return `Each player needs a string id (1-${MAX_PLAYER_ID_LENGTH} characters)`;
+    }
+    if (typeof player.name !== 'string' || player.name.length === 0 || player.name.length > MAX_PLAYER_NAME_LENGTH) {
+      return `Each player needs a name (1-${MAX_PLAYER_NAME_LENGTH} characters)`;
+    }
+    if (player.avatar != null && typeof player.avatar !== 'string') {
+      return 'Player avatar must be a string';
+    }
+  }
+  return null;
+}
+
 // Save/Update player
 app.post('/api/dart/players', async (req, res) => {
   try {
@@ -880,17 +922,22 @@ app.post('/api/dart/players', async (req, res) => {
       return res.status(400).json({ error: 'Players array is required', requestId: req.requestId });
     }
 
-    const stmt = db.prepare(`INSERT OR REPLACE INTO dart_players (id, name, avatar, stats, updated_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)`);
-    
+    const validationError = validatePlayers(players);
+    if (validationError) {
+      return res.status(400).json({ error: validationError, requestId: req.requestId });
+    }
+
     for (const player of players) {
-      stmt.run(
-        player.id,
-        player.name,
-        player.avatar || '',
-        JSON.stringify(player.stats || {})
+      await dbRun(
+        `INSERT OR REPLACE INTO dart_players (id, name, avatar, stats, updated_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+        [
+          player.id,
+          player.name,
+          player.avatar || '',
+          JSON.stringify(player.stats || {})
+        ]
       );
     }
-    stmt.finalize();
 
     res.json({ success: true, message: `Saved ${players.length} player(s)`, requestId: req.requestId });
   } catch (error) {
@@ -920,8 +967,8 @@ app.get('/api/dart/games', async (req, res) => {
   try {
     const games = await new Promise((resolve, reject) => {
       db.all('SELECT * FROM dart_games ORDER BY start_time DESC', (err, rows) => {
-        if (err) reject(err);
-        else {
+        if (err) return reject(err);
+        try {
           const parsed = rows.map(row => ({
             id: row.id,
             type: row.type,
@@ -936,6 +983,8 @@ app.get('/api/dart/games', async (req, res) => {
             endTime: row.end_time
           }));
           resolve(parsed);
+        } catch (parseError) {
+          reject(parseError);
         }
       });
     });
@@ -1231,13 +1280,23 @@ if (process.env.SENTRY_DSN) {
   app.use(Sentry.errorHandler());
 }
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`🚀 Balss Assistents Server running on port ${PORT}`);
-  console.log(`📊 Database: ${dbPath}`);
-  console.log(`🤖 OpenAI API: ${process.env.OPENAI_API_KEY ? 'Configured' : 'Missing'}`);
-  console.log(`📈 Sentry: ${process.env.SENTRY_DSN ? 'Configured' : 'Not configured'}`);
+// Log rejected promises that nothing handled
+process.on('unhandledRejection', (reason) => {
+  console.error('❌ Unhandled promise rejection:', reason);
 });
+
+// Start server (only when run directly, e.g. `node server.js`; the tests load
+// the app and listen on their own port)
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`🚀 Balss Assistents Server running on port ${PORT}`);
+    console.log(`📊 Database: ${dbPath}`);
+    console.log(`🤖 OpenAI API: ${process.env.OPENAI_API_KEY ? 'Configured' : 'Missing'}`);
+    console.log(`📈 Sentry: ${process.env.SENTRY_DSN ? 'Configured' : 'Not configured'}`);
+  });
+}
+
+module.exports = { app, db };
 
 // Graceful shutdown
 process.on('SIGINT', () => {
